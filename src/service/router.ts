@@ -7,9 +7,7 @@ export interface RouterOptions {
   logger: Logger;
 }
 
-export async function createRouter(
-  options: RouterOptions,
-): Promise<express.Router> {
+export async function createRouter(options: RouterOptions): Promise<express.Router> {
   const { logger } = options;
 
   const router = Router();

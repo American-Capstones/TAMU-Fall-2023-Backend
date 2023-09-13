@@ -1,1 +1,1 @@
-module.exports = require("@americanairlines/eslint-backstage")(__dirname);
+module.exports = require('@americanairlines/eslint-backstage');

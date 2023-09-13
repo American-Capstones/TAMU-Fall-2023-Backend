@@ -22,7 +22,7 @@ describe('createRouter', () => {
     it('returns ok', async () => {
       const response = await request(app).get('/health');
 
-      expect(response.status).toEqual(200);
+      expect(response.status).toBe(200);
       expect(response.body).toEqual({ status: 'ok' });
     });
   });
