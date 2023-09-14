@@ -11,7 +11,7 @@ export interface ServerOptions {
 
 export async function startStandaloneServer(options: ServerOptions): Promise<Server> {
   const logger = options.logger.child({
-    service: 'tamu-fall-2023-backend-backend',
+    service: 'tamu-fall-2023-backend',
   });
   logger.debug('Starting application server...');
   const router = await createRouter({
