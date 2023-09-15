@@ -34,7 +34,7 @@ jobs:
 
       - name: Entrypoint check
         run: |
-          ENTRYPOINT_FILE="./dist-types/index.js"
+          ENTRYPOINT_FILE="./dist-types/src/index.d.ts"
           if ! test -f "$ENTRYPOINT_FILE"; then
             echo "App entrypoint file missing ($ENTRYPOINT_FILE); app will fail to start in runtime environments."
             exit 1
