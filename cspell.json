@@ -1,0 +1,29 @@
+{
+  "ignorePaths": [
+    "*.log",
+    "./patches",
+    "./*.code-workspace",
+    "**/*.svg",
+    "**/coverage",
+    "**/dist",
+    "**/.next",
+    "**/migrations",
+    "**/node_modules",
+    "**/tsconfig*",
+    "**package.json"
+  ],
+  "words": [
+    "americanairlines",
+    "asynciterable",
+    "chakra",
+    "cooldown",
+    "gifs",
+    "mikro",
+    "mrkdwn",
+    "msapplication",
+    "postpack",
+    "tablist",
+    "tamu"
+  ],
+  "enabled": false
+}
