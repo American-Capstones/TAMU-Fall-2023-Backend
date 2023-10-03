@@ -1,8 +1,11 @@
 import { getVoidLogger } from '@backstage/backend-common';
+import { graphql } from '@octokit/graphql';
 import express from 'express';
 import request from 'supertest';
 
 import { createRouter } from './router';
+
+jest.mock('@octokit/graphql');
 
 describe('createRouter', () => {
   let app: express.Express;
@@ -21,9 +24,17 @@ describe('createRouter', () => {
   describe('GET /health', () => {
     it('returns ok', async () => {
       const response = await request(app).get('/health');
-
       expect(response.status).toBe(200);
       expect(response.body).toEqual({ status: 'ok' });
+    });
+  });
+
+  describe('GET /pokemon/:pokemonName', () => {
+    it('gets pikachu correctly', async () => {
+      jest.mocked(graphql).mockResolvedValue({pokemon: {name: 'pikachu'}});
+      const response = await request(app).get('/pokemon/pikachu');
+      expect(response).toStrictEqual({pokemon: expect.objectContaining({name: 'pikachu'})});
+      expect(graphql).toHaveBeenCalledWith(expect.stringContaining('_eq: pikachu'), { operationName: 'pokemon_details' });
     });
   });
 });

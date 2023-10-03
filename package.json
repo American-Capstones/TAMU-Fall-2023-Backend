@@ -30,7 +30,7 @@
     "@backstage/backend-common": "^0.19.1",
     "@backstage/config": "^1.0.8",
     "@types/express": "*",
-    "express": "^4.17.1",
+    "express": "^4.18.2",
     "express-promise-router": "^4.1.0",
     "node-fetch": "^2.6.7",
     "winston": "^3.2.1",
@@ -38,7 +38,7 @@
   },
   "devDependencies": {
     "@americanairlines/eslint-backstage": "^1.0.0",
-    "@backstage/cli": "^0.22.8",
+    "@backstage/cli": "^0.22.13",
     "@types/supertest": "^2.0.12",
     "cspell": "^7.3.5",
     "eslint-plugin-testing-library": "^6.0.1",
