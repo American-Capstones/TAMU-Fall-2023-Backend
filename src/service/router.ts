@@ -34,7 +34,7 @@ export async function createRouter(options: RouterOptions): Promise<express.Rout
       `,
       { operationName: 'pokemon_details' },
     );
-    response.json({ });
+    response.json(result);
   });
 
   router.use(errorHandler());

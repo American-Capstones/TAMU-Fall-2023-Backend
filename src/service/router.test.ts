@@ -2,7 +2,6 @@ import { getVoidLogger } from '@backstage/backend-common';
 import { graphql } from '@octokit/graphql';
 import express from 'express';
 import request from 'supertest';
-
 import { createRouter } from './router';
 
 jest.mock('@octokit/graphql');
@@ -31,10 +30,14 @@ describe('createRouter', () => {
 
   describe('GET /pokemon/:pokemonName', () => {
     it('gets pikachu correctly', async () => {
-      jest.mocked(graphql).mockResolvedValue({pokemon: {name: 'pikachu'}});
+      // Apparently, the package I was using no longer exports mocked (jest-test/utils).
+      // You should use jest.mocked() instead.
+      jest.mocked(graphql).mockResolvedValue({ pokemon: { name: 'pikachu' } });
       const response = await request(app).get('/pokemon/pikachu');
-      expect(response).toStrictEqual({pokemon: expect.objectContaining({name: 'pikachu'})});
-      expect(graphql).toHaveBeenCalledWith(expect.stringContaining('_eq: pikachu'), { operationName: 'pokemon_details' });
+      expect(response.body).toEqual({ pokemon: { name: 'pikachu' } });
+      expect(graphql).toHaveBeenCalledWith(expect.stringContaining('_eq: pikachu'), {
+        operationName: 'pokemon_details',
+      });
     });
   });
 });
