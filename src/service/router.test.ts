@@ -30,7 +30,7 @@ describe('createRouter', () => {
 
   describe('GET /pokemon/:pokemonName', () => {
     it('gets pikachu correctly', async () => {
-      // Apparently, the package I was using no longer exports mocked (jest-test/utils).
+      // Apparently, the package I was using no longer exports `mocked` (jest-test/utils).
       // You should use jest.mocked() instead.
       jest.mocked(graphql).mockResolvedValue({ pokemon: { name: 'pikachu' } });
       const response = await request(app).get('/pokemon/pikachu');

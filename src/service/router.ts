@@ -21,6 +21,8 @@ export async function createRouter(options: RouterOptions): Promise<express.Rout
 
   router.get('/pokemon/:pokemonName', async (request, response) => {
     const { pokemonName } = request.params;
+    // Note: You should definitely make an interface or type for the result of this query
+    // I'm just using `any` for simplicity. Using `any` is typically a bad practice.
     const result = await graphql<any>(
       `
         query pokemon_details {
