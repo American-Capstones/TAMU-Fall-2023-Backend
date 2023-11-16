@@ -66,10 +66,6 @@ export async function createRouter(options: RouterOptions): Promise<express.Rout
     
     const { user_id } = request.params;
 
-    if (!user_id) {
-      response.status(400).send('Missing user id');
-    }
-
     const repos = await databaseClient(userRepositoriesTable).where({
       'user_id': user_id
     }).select('repository');
