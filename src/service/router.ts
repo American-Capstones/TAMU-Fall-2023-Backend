@@ -104,7 +104,7 @@ export async function createRouter(options: RouterOptions): Promise<express.Rout
     for (let i = 0; i < repos.length; i++) {
       const repo = repos[i].repository;
       const data = await getPRData(octokit, {'owner': organization, 'repo': repo});
-      out.push(JSON.stringify({'repository': repo, 'data': JSON.stringify(data.repository.pullRequests.nodes)}));
+      out.push(JSON.stringify({'repository': repo, 'data': data.repository.pullRequests.nodes}));
     }
 
     response.send(out);
