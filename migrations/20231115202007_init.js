@@ -6,7 +6,7 @@ exports.up = function(knex) {
   return knex.schema.createTableIfNotExists('user_repositories', table => {
     table.comment('Store repositories per user');
     table.increments();
-    table.string('email_id').notNullable();
+    table.string('user_id').notNullable();
     table.string('repository').notNullable();
     table.timestamps(true, true);
   });

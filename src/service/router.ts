@@ -55,25 +55,17 @@ export async function createRouter(options: RouterOptions): Promise<express.Rout
 
   router.post('/add-user-repo', async (request, response) => {
     
-    const email_id: string = request.body.email_id; 
-    const repository: string = request.body.repository; 
-    const validateEmail = (email: string) => {
-      return String(email)
-        .toLowerCase()
-        .match(
-          /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|.(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/
-        );
-    };
+    const user_id: string = request.body.user_id; 
+    const repository: string = request.body.repository;     
     
-    
-    if (!email_id || !repository || !validateEmail(email_id)) {
-      response.status(400).send('Missing or invalid parameters for email and/or repo');
+    if (!user_id || !repository) {
+      response.status(400).send('Missing parameters for user id and/or repo');
       return;
     }
 
     // add to db
     await databaseClient(userRepositoriesTable).insert(
-      {'email_id': email_id, 
+      {'user_id': user_id, 
       'repository': repository}
     );
     response.status(200).send();
@@ -83,21 +75,14 @@ export async function createRouter(options: RouterOptions): Promise<express.Rout
 
 
   router.post('/get-user-repos', async (request, response) => {
-    const email_id: string = request.body.email_id; 
-    const validateEmail = (email: string) => {
-      return String(email)
-        .toLowerCase()
-        .match(
-          /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|.(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/
-        );
-    };
+    const user_id: string = request.body.user_id; 
 
-    if (!email_id || !validateEmail(email_id)) {
-      response.status(400).send('Missing or invalid email id');
+    if (!user_id) {
+      response.status(400).send('Missing user id');
     }
 
     const repos = await databaseClient(userRepositoriesTable).where({
-      'email_id': email_id
+      'user_id': user_id
     }).select('repository');
     
     let out = []
