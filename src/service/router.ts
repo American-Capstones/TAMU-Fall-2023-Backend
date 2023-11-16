@@ -43,16 +43,6 @@ export async function createRouter(options: RouterOptions): Promise<express.Rout
   const router = Router();
   router.use(express.json());
 
-  router.get('/health2', (_, response) => {
-    logger.info('PONG!');
-    response.json({ status: 'ok' });
-  });
-  router.get('/config/:id', async (request, response) => {
-    const { id } = request.params;
-    const val = config.getOptionalString(`tamu.${id}`);
-    response.json({ status: val });
-  });
-
   router.post('/add-user-repo', async (request, response) => {
     
     const user_id: string = request.body.user_id; 
@@ -72,10 +62,9 @@ export async function createRouter(options: RouterOptions): Promise<express.Rout
 
   });
 
-
-
-  router.post('/get-user-repos', async (request, response) => {
-    const user_id: string = request.body.user_id; 
+  router.get('/get-user-repos/:user_id', async (request, response) => {
+    
+    const { user_id } = request.params;
 
     if (!user_id) {
       response.status(400).send('Missing user id');
