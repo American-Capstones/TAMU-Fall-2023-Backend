@@ -3,6 +3,12 @@ query getRepoName($owner: String!, $repo: String!) {
   repository(owner: $owner, name: $repo) {
     pullRequests (last:30){
       nodes {
+        labels (first:5){
+          nodes {
+            color
+            name
+          }
+        }
         number
         title
         state

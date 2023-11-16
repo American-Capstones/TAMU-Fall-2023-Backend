@@ -23,8 +23,14 @@ interface Review {
     updatedAt: string; 
 }
 
+interface Label {
+    color: string; 
+    name: string;
+}
+
 // PullRequest
 interface PullRequest {
+    nodes: Label[]; 
     number: number;
     title: string;
     state: string;
