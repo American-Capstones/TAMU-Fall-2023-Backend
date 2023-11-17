@@ -44,3 +44,10 @@ query getRepoName($owner: String!, $repo: String!) {
     }
   }
 } `
+
+export const IS_ARCHIVED_REPO = `
+query isArchived($owner: String!, $repo: String!) {
+  repository(owner: $owner, name: $repo) {
+    isArchived
+	}	
+}`
