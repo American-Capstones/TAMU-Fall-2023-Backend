@@ -3,10 +3,9 @@ import express from 'express';
 import Router from 'express-promise-router';
 import { Logger } from 'winston';
 import { Config } from '@backstage/config';
-import { PluginDatabaseManager } from '@backstage/backend-common';
-import { resolvePackagePath } from '@backstage/backend-common';
+import { PluginDatabaseManager, resolvePackagePath } from '@backstage/backend-common';
 import { Knex } from 'knex'
-import { getReposData, graphqlInput, ValidRepo } from './pull_request_query';
+import { UserRepository, getReposData, GraphqlInput, validRepo } from './pull_request_query';
 import { graphql } from '@octokit/graphql'
 
 export interface RouterOptions {
@@ -29,14 +28,14 @@ async function applyDatabaseMigrations(knex: Knex): Promise<void> {
 export async function createRouter(options: RouterOptions): Promise<express.Router> {
   const { logger, config, database } = options;
   const databaseClient = await database.getClient();
-  await applyDatabaseMigrations(databaseClient);
+  await applyDatabaseMigrations(databaseClient as unknown as Knex);
   const userRepositoriesTable = 'user_repositories';
 
   const authToken: string = config.getString('pr-tracker-backend.auth_token');
   const organization: string = config.getString('pr-tracker-backend.organization'); // owner of the repository
-  const graphqlInput: graphqlInput = {
+  const graphqlInput: GraphqlInput = {
     owner: organization, 
-    repo: ''
+    repository: ''
   };
 
   const authGraphql = graphql.defaults({
@@ -49,31 +48,31 @@ export async function createRouter(options: RouterOptions): Promise<express.Rout
   router.use(express.json());
 
   router.post('/add-user-repo', async (request, response) => {
-    const user_id: string = request.body.user_id; 
-    const repository: string = request.body.repository;     
-    
-    if (!user_id || !repository) {
-      response.status(400).send('Missing parameters for user id and/or repo');
+    const newUserRepo: UserRepository = {...request.body}   
+
+    if (!newUserRepo.user_id) {
+      response.status(400).send('Missing parameter user_id!');
+      return;
+    }
+    if (!newUserRepo.repository) {
+      response.status(400).send('Missing parameter repository!');
       return;
     }
 
-    graphqlInput.repo = repository;
-    const isValidRepo = await ValidRepo(logger, authGraphql, graphqlInput); 
+    const isValidRepo = await validRepo(logger, authGraphql, {...graphqlInput, repository: newUserRepo.repository}); 
     if (!(isValidRepo)) {
       response.status(400).send('Repository is either not accessible or archived');
       return; 
     }
     try {
       // add to db, ignore duplicates
-      await databaseClient(userRepositoriesTable).insert(
-        {'user_id': user_id, 
-        'repository': repository}
-      )
+      await databaseClient<UserRepository>(userRepositoriesTable)
+      .insert(newUserRepo)
       .onConflict().ignore();
     }
 
     catch(error: any) {
-      logger.error(`Failed to add ${user_id} and ${repository} to database, error: ${error}`);
+      logger.error(`Failed to add ${newUserRepo.user_id} and ${newUserRepo.repository} to database, error: ${error}`);
       response.status(500).send();
     }
     
@@ -86,7 +85,7 @@ export async function createRouter(options: RouterOptions): Promise<express.Rout
     const { user_id } = request.params;
 
     try {
-      const repos = await databaseClient(userRepositoriesTable).where({
+      const repos = await databaseClient<UserRepository>(userRepositoriesTable).where({
         'user_id': user_id
       }).select('repository');
       

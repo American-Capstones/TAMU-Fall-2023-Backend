@@ -1,6 +1,6 @@
 export const GET_REPO_DATA = `
-query getRepoName($owner: String!, $repo: String!) {
-  repository(owner: $owner, name: $repo) {
+query getRepoName($owner: String!, $repository: String!) {
+  repository(owner: $owner, name: $repository) {
     pullRequests (last:30){
       nodes {
         labels (first:5){
@@ -46,8 +46,8 @@ query getRepoName($owner: String!, $repo: String!) {
 } `
 
 export const IS_ARCHIVED_REPO = `
-query isArchived($owner: String!, $repo: String!) {
-  repository(owner: $owner, name: $repo) {
+query isArchived($owner: String!, $repository: String!) {
+  repository(owner: $owner, name: $repository) {
     isArchived
 	}	
 }`

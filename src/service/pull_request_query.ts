@@ -64,24 +64,29 @@ interface RepoCheck {
     }
 }
 
-export interface graphqlInput extends RequestParameters {
+export interface GraphqlInput extends RequestParameters {
     owner: string; 
-    repo: string; 
+    repository: string; 
+}
+
+export interface UserRepository {
+    user_id: string; 
+    repository: string; 
+    created_at: string;
+    updated_at: string; 
 }
 
 // repos type is knex.select return type
-export async function getReposData(logger: Logger, authGraphql: typeof graphql, repos: any[], graphqlInput: graphqlInput): Promise<string> {
+export async function getReposData(logger: Logger, authGraphql: typeof graphql, repos: Pick<UserRepository, 'repository'>[], graphqlInput: GraphqlInput): Promise<string> {
     let out = []
-    for (let i = 0; i < repos.length; i++) {
-        const repo = repos[i].repository;
-        graphqlInput.repo = repo;
+    for (const repo of repos) {
         try {
-            let data = await getPRData(logger, authGraphql, graphqlInput);
-            out.push({'repository': repo, 'data': data.repository.pullRequests.nodes});
+            const data = await getPRData(logger, authGraphql, {...graphqlInput, repository: repo.repository});
+            out.push({repository: repo.repository, data: data.repository.pullRequests.nodes});
         }
 
         catch(error: any) {
-            logger.error(`Failed to get PR data for repository ${repo}, error: ${error}`);
+            logger.error(`Failed to get PR data for repository ${repo.repository}, error: ${error}`);
             // might happen if repo gets deleted? 
             // continue trying to get other repos
         }
@@ -90,18 +95,19 @@ export async function getReposData(logger: Logger, authGraphql: typeof graphql, 
 }
 
 
-async function getPRData(logger: Logger, authGraphql: typeof graphql, input_json: graphqlInput): Promise<PullRequestsData> {
+async function getPRData(logger: Logger, authGraphql: typeof graphql, input_json: GraphqlInput): Promise<PullRequestsData> {
     
     logger.info(`Getting data for repository ${input_json.repo}`)
     const response = await authGraphql<PullRequestsData>(GET_REPO_DATA, input_json);
     // change the PR state 'OPEN' to 'IN_PROGRESS' once we have reviews, comments, or approvals
     // set state duration to the number of days it has been in the current state
+
     return response;
 
 }
 
 // valid if we can access it and it's not archived 
-export async function ValidRepo(logger: Logger, authGraphql: typeof graphql, input_json: graphqlInput): Promise<boolean> {
+export async function validRepo(logger: Logger, authGraphql: typeof graphql, input_json: GraphqlInput): Promise<boolean> {
 
       try {
         const response = await authGraphql<RepoCheck>(IS_ARCHIVED_REPO, input_json);
