@@ -38,6 +38,7 @@ interface PullRequest {
     body: string; 
     url: string;
     stateDuration: number; 
+    numApprovals: number; 
     createdAt: string;
     updatedAt: string;
     author: {
@@ -101,7 +102,24 @@ async function getPRData(logger: Logger, authGraphql: typeof graphql, input_json
     const response = await authGraphql<PullRequestsData>(GET_REPO_DATA, input_json);
     // change the PR state 'OPEN' to 'IN_PROGRESS' once we have reviews, comments, or approvals
     // set state duration to the number of days it has been in the current state
-
+    let pullRequests = response.repository.pullRequests.nodes; 
+    for (let pullRequest of pullRequests) {
+        const currentTime = new Date(); 
+        if (pullRequest.state === 'OPEN' && pullRequest.reviews.nodes.length === 0) {
+            const createdAt = new Date(pullRequest.createdAt); 
+            pullRequest.stateDuration = Math.round((currentTime.getTime() - createdAt.getTime()) / (1000*60*60*24));
+        }
+        else if (pullRequest.state === 'OPEN') {
+            pullRequest.state = 'IN_PROGRESS';
+             const inProgressSince = Math.min(...pullRequest.reviews.nodes.map(node => new Date(node.createdAt).getTime()));
+             pullRequest.stateDuration = Math.round((currentTime.getTime() - inProgressSince) / (1000*60*60*24));
+        }    
+        else {
+            const updatedAt = new Date(pullRequest.updatedAt); 
+            pullRequest.stateDuration = Math.round((currentTime.getTime() - updatedAt.getTime()) / (1000*60*60*24));
+        }
+        pullRequest.numApprovals = pullRequest.reviews.nodes.filter(node => node.state === 'APPROVED').length; 
+    }
     return response;
 
 }
