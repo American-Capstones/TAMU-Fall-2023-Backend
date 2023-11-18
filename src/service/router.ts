@@ -48,7 +48,7 @@ export async function createRouter(options: RouterOptions): Promise<express.Rout
   router.use(express.json());
 
   router.post('/add-user-repo', async (request, response) => {
-    const newUserRepo: UserRepository = {...request.body}   
+    const newUserRepo: UserRepository = request.body; 
 
     if (!newUserRepo.user_id) {
       response.status(400).send('Missing parameter user_id!');
