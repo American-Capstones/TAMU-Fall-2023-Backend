@@ -80,6 +80,30 @@ export async function createRouter(options: RouterOptions): Promise<express.Rout
 
   });
 
+  router.post('/delete-user-repo', async (request, response) => {
+    const userRepo: UserRepository = request.body; 
+    if (!userRepo.user_id) {
+      response.status(400).send('Missing parameter user_id!');
+      return;
+    }
+    if (!userRepo.repository) {
+      response.status(400).send('Missing parameter repository!');
+      return;
+    }
+
+    logger.info(`Attempting to delete ${userRepo.user_id} and ${userRepo.repository} from database`)
+    try {
+      await databaseClient<UserRepository>(userRepositoriesTable).where(userRepo).delete();
+    }
+    catch(error: any) {
+      logger.error(`Failed to delete ${userRepo.user_id} and ${userRepo.repository} from database, error: ${error}`);
+      response.status(500).send();
+    }
+
+    response.status(200).send();
+
+  });
+
   router.get('/get-user-repos/:user_id', async (request, response) => {
     
     const { user_id } = request.params;
