@@ -70,6 +70,7 @@ export default async function createPlugin(
 
 
  TODO:
+  * CHANGE SCHEMA TO SUPPORT NEW FUNCTIONALITY
   * Come up with tests for each of the api routes (front-end facing)
   * Feature: add repos automatically according to the teams a user belongs to
   * Pagination repo nodes
