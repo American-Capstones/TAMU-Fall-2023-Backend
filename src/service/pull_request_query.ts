@@ -1,7 +1,9 @@
 import { graphql, GraphqlResponseError } from '@octokit/graphql';
-import { GET_REPO_DATA, IS_ARCHIVED_REPO } from './graphql/pull_request';
+import { GET_REPO_DATA, IS_ARCHIVED_REPO, GET_TEAM_REPOS } from './graphql/pull_request';
 import { RequestParameters } from '@octokit/types'
 import { Logger } from 'winston';
+import { UserRepositoryEntry } from './database_types';
+
 
 interface Comment {
     author: {
@@ -59,26 +61,51 @@ interface PullRequestsData {
     };
 }
 
+export interface TeamsRepositories { // several teams
+    organization: {
+        teams: {
+            nodes: TeamRepositories[]; // one team
+        }
+    }
+}
+
+interface TeamRepositories {
+    name: string; // team name
+    repositories: {
+        nodes: {
+            name: string; 
+        }[]
+    }
+}
+
 interface RepoCheck {
     repository: {
         isArchived: boolean; 
     }
 }
 
-export interface GraphqlInput extends RequestParameters {
-    owner: string; 
+export interface GetReposDataInput extends RequestParameters {
+    organization: string; 
     repository: string; 
 }
 
-export interface UserRepository {
-    user_id: string; 
+export interface GetPRDataInput extends RequestParameters {
+    organization: string; 
     repository: string; 
-    created_at: string;
-    updated_at: string; 
+}
+
+export interface ValidRepoInput extends RequestParameters {
+    organization: string; 
+    repository: string; 
+}
+
+export interface GetTeamsReposInput extends RequestParameters {
+    organization: string; 
+    user_id: string; 
 }
 
 // repos type is knex.select return type
-export async function getReposData(logger: Logger, authGraphql: typeof graphql, repos: Pick<UserRepository, 'repository'>[], graphqlInput: GraphqlInput): Promise<string> {
+export async function getReposData(logger: Logger, authGraphql: typeof graphql, repos: Pick<UserRepositoryEntry, 'repository'>[], graphqlInput: GetReposDataInput): Promise<string> {
     let out = []
     for (const repo of repos) {
         try {
@@ -96,7 +123,7 @@ export async function getReposData(logger: Logger, authGraphql: typeof graphql, 
 }
 
 
-async function getPRData(logger: Logger, authGraphql: typeof graphql, input_json: GraphqlInput): Promise<PullRequestsData> {
+async function getPRData(logger: Logger, authGraphql: typeof graphql, input_json: GetPRDataInput): Promise<PullRequestsData> {
     
     logger.info(`Getting data for repository ${input_json.repo}`)
     const response = await authGraphql<PullRequestsData>(GET_REPO_DATA, input_json);
@@ -125,7 +152,7 @@ async function getPRData(logger: Logger, authGraphql: typeof graphql, input_json
 }
 
 // valid if we can access it and it's not archived 
-export async function validRepo(logger: Logger, authGraphql: typeof graphql, input_json: GraphqlInput): Promise<boolean> {
+export async function validRepo(logger: Logger, authGraphql: typeof graphql, input_json: ValidRepoInput): Promise<boolean> {
 
       try {
         const response = await authGraphql<RepoCheck>(IS_ARCHIVED_REPO, input_json);
@@ -141,7 +168,11 @@ export async function validRepo(logger: Logger, authGraphql: typeof graphql, inp
         logger.error(`Unknown error when validating repo: ${input_json.repo}, error: ${error}`);
         return true; 
         
-      }
-        
-   
+      } 
+}
+
+export async function getTeamsRepos(logger: Logger, authGraphql: typeof graphql, input_json: GetTeamsReposInput): Promise<TeamsRepositories> {
+
+    logger.info(`Attempting to retrieve team repositories for user ${input_json.user_id}`)
+    return await authGraphql<TeamsRepositories>(GET_TEAM_REPOS, input_json);
 }
