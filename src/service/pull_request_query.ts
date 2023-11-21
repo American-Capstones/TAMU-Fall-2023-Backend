@@ -2,9 +2,8 @@ import { graphql, GraphqlResponseError } from '@octokit/graphql';
 import { GET_REPO_DATA, IS_ARCHIVED_REPO, GET_TEAM_REPOS } from './graphql/pull_request';
 import { RequestParameters } from '@octokit/types'
 import { Logger } from 'winston';
-import { UserRepositoryEntry } from './database_types';
+import { UserRepositoryEntry, pullRequestTable, PullRequestEntry } from './database_types';
 import { Knex } from 'knex';
-import { pullRequestTable, PullRequestEntry } from './database_types'
 
 interface Comment {
     author: {
@@ -127,27 +126,26 @@ export async function getReposData(databaseClient: Knex, logger: Logger, authGra
 }
 
 
-async function getPRData(databaseClient: Knex, logger: Logger, authGraphql: typeof graphql, input_json: GetPRDataInput): Promise<PullRequestsData> {
+async function getPRData(databaseClient: Knex, logger: Logger, authGraphql: typeof graphql, inputJson: GetPRDataInput): Promise<PullRequestsData> {
     
-    logger.info(`Getting data for repository ${input_json.repo}`)
-    const response = await authGraphql<PullRequestsData>(GET_REPO_DATA, input_json);
+    logger.info(`Getting data for repository ${inputJson.repo}`)
+    const response = await authGraphql<PullRequestsData>(GET_REPO_DATA, inputJson);
     // change the PR state 'OPEN' to 'IN_PROGRESS' once we have reviews, comments, or approvals
     // set state duration to the number of days it has been in the current state
-    let pullRequests = response.repository.pullRequests.nodes; 
-    for (let pullRequest of pullRequests) {
-
+    const pullRequests = response.repository.pullRequests.nodes; 
+    for (const pullRequest of pullRequests) {
 
         // set pr priority and description
 
         try {
-            const pr_props = await databaseClient<PullRequestEntry>(pullRequestTable)
+            const prProps = await databaseClient<PullRequestEntry>(pullRequestTable)
             .where({
                 pull_request_id: pullRequest.id
             }).first();
 
-            if (pr_props !== undefined) {
-                pullRequest.priority = pr_props.priority;
-                pullRequest.description = pr_props.description; 
+            if (prProps) {
+                pullRequest.priority = prProps.priority;
+                pullRequest.description = prProps.description; 
             }
             else {
                 pullRequest.priority = 'None';
@@ -181,10 +179,10 @@ async function getPRData(databaseClient: Knex, logger: Logger, authGraphql: type
 }
 
 // valid if we can access it and it's not archived 
-export async function validRepo(logger: Logger, authGraphql: typeof graphql, input_json: ValidRepoInput): Promise<boolean> {
+export async function validRepo(logger: Logger, authGraphql: typeof graphql, inputJson: ValidRepoInput): Promise<boolean> {
 
       try {
-        const response = await authGraphql<RepoCheck>(IS_ARCHIVED_REPO, input_json);
+        const response = await authGraphql<RepoCheck>(IS_ARCHIVED_REPO, inputJson);
         return !(response.repository.isArchived); 
       }
 
@@ -194,14 +192,14 @@ export async function validRepo(logger: Logger, authGraphql: typeof graphql, inp
             return false; 
         }
 
-        logger.error(`Unknown error when validating repo: ${input_json.repo}, error: ${error}`);
+        logger.error(`Unknown error when validating repo: ${inputJson.repo}, error: ${error}`);
         return true; 
         
       } 
 }
 
-export async function getTeamsRepos(logger: Logger, authGraphql: typeof graphql, input_json: GetTeamsReposInput): Promise<TeamsRepositories> {
+export async function getTeamsRepos(logger: Logger, authGraphql: typeof graphql, inputJson: GetTeamsReposInput): Promise<TeamsRepositories> {
 
-    logger.info(`Attempting to retrieve team repositories for user ${input_json.user_id}`)
-    return await authGraphql<TeamsRepositories>(GET_TEAM_REPOS, input_json);
+    logger.info(`Attempting to retrieve team repositories for user ${inputJson.user_id}`)
+    return await authGraphql<TeamsRepositories>(GET_TEAM_REPOS, inputJson);
 }
