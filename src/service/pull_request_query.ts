@@ -149,6 +149,10 @@ async function getPRData(databaseClient: Knex, logger: Logger, authGraphql: type
                 pullRequest.priority = pr_props.priority;
                 pullRequest.description = pr_props.description; 
             }
+            else {
+                pullRequest.priority = 'None';
+                pullRequest.description = '';
+            }
         }
 
         catch(error: any) {
