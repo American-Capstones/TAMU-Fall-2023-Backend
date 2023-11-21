@@ -3,7 +3,8 @@ import { GET_REPO_DATA, IS_ARCHIVED_REPO, GET_TEAM_REPOS } from './graphql/pull_
 import { RequestParameters } from '@octokit/types'
 import { Logger } from 'winston';
 import { UserRepositoryEntry } from './database_types';
-
+import { Knex } from 'knex';
+import { pullRequestTable, PullRequestEntry } from './database_types'
 
 interface Comment {
     author: {
@@ -33,12 +34,15 @@ interface Label {
 
 // PullRequest
 interface PullRequest {
+    id: string; 
     nodes: Label[]; 
     number: number;
     title: string;
     state: string;
     body: string; 
     url: string;
+    priority: string; 
+    description: string; 
     stateDuration: number; 
     numApprovals: number; 
     createdAt: string;
@@ -105,11 +109,11 @@ export interface GetTeamsReposInput extends RequestParameters {
 }
 
 // repos type is knex.select return type
-export async function getReposData(logger: Logger, authGraphql: typeof graphql, repos: Pick<UserRepositoryEntry, 'repository'>[], graphqlInput: GetReposDataInput): Promise<string> {
+export async function getReposData(databaseClient: Knex, logger: Logger, authGraphql: typeof graphql, repos: Pick<UserRepositoryEntry, 'repository'>[], graphqlInput: GetReposDataInput): Promise<string> {
     let out = []
     for (const repo of repos) {
         try {
-            const data = await getPRData(logger, authGraphql, {...graphqlInput, repository: repo.repository});
+            const data = await getPRData(databaseClient, logger, authGraphql, {...graphqlInput, repository: repo.repository});
             out.push({repository: repo.repository, data: data.repository.pullRequests.nodes});
         }
 
@@ -123,7 +127,7 @@ export async function getReposData(logger: Logger, authGraphql: typeof graphql, 
 }
 
 
-async function getPRData(logger: Logger, authGraphql: typeof graphql, input_json: GetPRDataInput): Promise<PullRequestsData> {
+async function getPRData(databaseClient: Knex, logger: Logger, authGraphql: typeof graphql, input_json: GetPRDataInput): Promise<PullRequestsData> {
     
     logger.info(`Getting data for repository ${input_json.repo}`)
     const response = await authGraphql<PullRequestsData>(GET_REPO_DATA, input_json);
@@ -131,6 +135,27 @@ async function getPRData(logger: Logger, authGraphql: typeof graphql, input_json
     // set state duration to the number of days it has been in the current state
     let pullRequests = response.repository.pullRequests.nodes; 
     for (let pullRequest of pullRequests) {
+
+
+        // set pr priority and description
+
+        try {
+            const pr_props = await databaseClient<PullRequestEntry>(pullRequestTable)
+            .where({
+                pull_request_id: pullRequest.id
+            }).first();
+
+            if (pr_props !== undefined) {
+                pullRequest.priority = pr_props.priority;
+                pullRequest.description = pr_props.description; 
+            }
+        }
+
+        catch(error: any) {
+            logger.error(`Failed to retrieve pull request properties for pull request: ${pullRequest.title}, error: ${error}`);
+        }
+
+
         const currentTime = new Date(); 
         if (pullRequest.state === 'OPEN' && pullRequest.reviews.nodes.length === 0) {
             const createdAt = new Date(pullRequest.createdAt); 

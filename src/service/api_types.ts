@@ -14,3 +14,13 @@ export interface DeleteUserRepoRequestObject {
 export interface GetUserReposRequestObject {
     user_id: string; 
 }
+
+export interface SetPRPriorityRequestObject {
+    pull_request_id: string; 
+    priority: string; 
+}
+
+export interface SetPRDescriptionRequestObject {
+    pull_request_id: string; 
+    description: string; 
+}

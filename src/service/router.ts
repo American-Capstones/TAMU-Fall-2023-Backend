@@ -6,9 +6,9 @@ import { Config } from '@backstage/config';
 import { PluginDatabaseManager, resolvePackagePath } from '@backstage/backend-common';
 import { Knex } from 'knex'
 import { graphql } from '@octokit/graphql'
-import { AddUserRepoRequestObject, DeleteUserRepoRequestObject, GetUserReposRequestObject } from './api_types';
+import { AddUserRepoRequestObject, DeleteUserRepoRequestObject, GetUserReposRequestObject, SetPRPriorityRequestObject, SetPRDescriptionRequestObject } from './api_types';
 import { TeamsRepositories, getReposData, getTeamsRepos, validRepo } from './pull_request_query';
-import { UserRepositoryEntry, userRepositoriesTable } from './database_types';
+import { PullRequestEntry, UserRepositoryEntry, pullRequestTable, userRepositoriesTable } from './database_types';
 
 export interface RouterOptions {
   logger: Logger;
@@ -173,7 +173,7 @@ export async function createRouter(options: RouterOptions): Promise<express.Rout
         display: true 
       }).select('repository');
       
-      await getReposData(logger, authGraphql, repos, {organization, repository: ''}).then(output => response.send(output));
+      await getReposData(databaseClient, logger, authGraphql, repos, {organization, repository: ''}).then(output => response.send(output));
 
     }
     catch(error: any) {
@@ -182,6 +182,92 @@ export async function createRouter(options: RouterOptions): Promise<express.Rout
       return;
     }
 
+  });
+
+
+  router.post('/set-pr-priority',async (request, response) => {
+    const pull_request: SetPRPriorityRequestObject = request.body;
+
+    if (!pull_request.pull_request_id) {
+      response.status(400).send('Missing parameter pull_request_id!');
+      return;
+    }
+
+    if (!pull_request.priority) {
+      response.status(400).send('Missing parameter priority!');
+      return;
+    }
+
+    const priority_values = {
+      None: true,
+      Trivial: true,
+      Minor: true,
+      Major: true,
+      Critical: true,
+      Blocker: true,
+    };
+
+    if (!(pull_request.priority in priority_values)) {
+      response.status(400).send('Invalid parameter priority!');
+      return;
+    }
+
+    try {
+      await databaseClient<PullRequestEntry>(pullRequestTable)
+      .insert({
+        pull_request_id: pull_request.pull_request_id,
+        priority: pull_request.priority
+      })
+      .onConflict(['pull_request_id'])
+      .merge({
+        priority: pull_request.priority
+      });
+    }
+
+    catch(error: any) {
+      logger.error(`Failed to set priority ${pull_request.priority} for pull request ${pull_request.pull_request_id}, error: ${error}`);
+      response.status(500).send();
+      return;
+    }
+
+    response.status(200).send();
+    
+  });
+
+  router.post('/set-pr-description',async (request, response) => {
+    const pull_request: SetPRDescriptionRequestObject = request.body;
+
+    if (!pull_request.pull_request_id) {
+      response.status(400).send('Missing parameter pull_request_id!');
+      return;
+    }
+
+    if (!pull_request.description) {
+      response.status(400).send('Missing parameter description!');
+      return;
+    }
+
+    try {
+      await databaseClient<PullRequestEntry>(pullRequestTable)
+      .insert({
+        pull_request_id: pull_request.pull_request_id,
+        description: pull_request.description,
+        priority: 'None'
+      })
+      .onConflict(['pull_request_id'])
+      .merge({
+        description: pull_request.description,
+      });
+    }
+
+    catch(error: any) {
+      logger.error(`Failed to set description ${pull_request.description} for pull request ${pull_request.pull_request_id}, error: ${error}`);
+      response.status(500).send();
+      return;
+    }
+
+    response.status(200).send();
+    
   });
 
   router.use(errorHandler());

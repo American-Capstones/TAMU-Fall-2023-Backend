@@ -9,6 +9,7 @@ query getRepoName($organization: String!, $repository: String!) {
             name
           }
         }
+        id
         number
         title
         state
