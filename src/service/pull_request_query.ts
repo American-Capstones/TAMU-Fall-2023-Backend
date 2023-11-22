@@ -1,7 +1,9 @@
 import { graphql, GraphqlResponseError } from '@octokit/graphql';
-import { GET_REPO_DATA, IS_ARCHIVED_REPO } from './graphql/pull_request';
+import { GET_REPO_DATA, IS_ARCHIVED_REPO, GET_TEAM_REPOS } from './graphql/pull_request';
 import { RequestParameters } from '@octokit/types'
 import { Logger } from 'winston';
+import { UserRepositoryEntry, pullRequestTable, PullRequestEntry } from './database_types';
+import { Knex } from 'knex';
 
 interface Comment {
     author: {
@@ -31,12 +33,15 @@ interface Label {
 
 // PullRequest
 interface PullRequest {
+    id: string; 
     nodes: Label[]; 
     number: number;
     title: string;
     state: string;
     body: string; 
     url: string;
+    priority: string; 
+    description: string; 
     stateDuration: number; 
     numApprovals: number; 
     createdAt: string;
@@ -59,30 +64,55 @@ interface PullRequestsData {
     };
 }
 
+export interface TeamsRepositories { // several teams
+    organization: {
+        teams: {
+            nodes: TeamRepositories[]; // one team
+        }
+    }
+}
+
+interface TeamRepositories {
+    name: string; // team name
+    repositories: {
+        nodes: {
+            name: string; 
+        }[]
+    }
+}
+
 interface RepoCheck {
     repository: {
         isArchived: boolean; 
     }
 }
 
-export interface GraphqlInput extends RequestParameters {
-    owner: string; 
+export interface GetReposDataInput extends RequestParameters {
+    organization: string; 
     repository: string; 
 }
 
-export interface UserRepository {
-    user_id: string; 
+export interface GetPRDataInput extends RequestParameters {
+    organization: string; 
     repository: string; 
-    created_at: string;
-    updated_at: string; 
+}
+
+export interface ValidRepoInput extends RequestParameters {
+    organization: string; 
+    repository: string; 
+}
+
+export interface GetTeamsReposInput extends RequestParameters {
+    organization: string; 
+    user_id: string; 
 }
 
 // repos type is knex.select return type
-export async function getReposData(logger: Logger, authGraphql: typeof graphql, repos: Pick<UserRepository, 'repository'>[], graphqlInput: GraphqlInput): Promise<string> {
+export async function getReposData(databaseClient: Knex, logger: Logger, authGraphql: typeof graphql, repos: Pick<UserRepositoryEntry, 'repository'>[], graphqlInput: GetReposDataInput): Promise<string> {
     let out = []
     for (const repo of repos) {
         try {
-            const data = await getPRData(logger, authGraphql, {...graphqlInput, repository: repo.repository});
+            const data = await getPRData(databaseClient, logger, authGraphql, {...graphqlInput, repository: repo.repository});
             out.push({repository: repo.repository, data: data.repository.pullRequests.nodes});
         }
 
@@ -96,14 +126,38 @@ export async function getReposData(logger: Logger, authGraphql: typeof graphql, 
 }
 
 
-async function getPRData(logger: Logger, authGraphql: typeof graphql, input_json: GraphqlInput): Promise<PullRequestsData> {
+async function getPRData(databaseClient: Knex, logger: Logger, authGraphql: typeof graphql, inputJson: GetPRDataInput): Promise<PullRequestsData> {
     
-    logger.info(`Getting data for repository ${input_json.repo}`)
-    const response = await authGraphql<PullRequestsData>(GET_REPO_DATA, input_json);
+    logger.info(`Getting data for repository ${inputJson.repo}`)
+    const response = await authGraphql<PullRequestsData>(GET_REPO_DATA, inputJson);
     // change the PR state 'OPEN' to 'IN_PROGRESS' once we have reviews, comments, or approvals
     // set state duration to the number of days it has been in the current state
-    let pullRequests = response.repository.pullRequests.nodes; 
-    for (let pullRequest of pullRequests) {
+    const pullRequests = response.repository.pullRequests.nodes; 
+    for (const pullRequest of pullRequests) {
+
+        // set pr priority and description
+
+        try {
+            const prProps = await databaseClient<PullRequestEntry>(pullRequestTable)
+            .where({
+                pull_request_id: pullRequest.id
+            }).first();
+
+            if (prProps) {
+                pullRequest.priority = prProps.priority;
+                pullRequest.description = prProps.description; 
+            }
+            else {
+                pullRequest.priority = 'None';
+                pullRequest.description = '';
+            }
+        }
+
+        catch(error: any) {
+            logger.error(`Failed to retrieve pull request properties for pull request: ${pullRequest.title}, error: ${error}`);
+        }
+
+
         const currentTime = new Date(); 
         if (pullRequest.state === 'OPEN' && pullRequest.reviews.nodes.length === 0) {
             const createdAt = new Date(pullRequest.createdAt); 
@@ -125,10 +179,10 @@ async function getPRData(logger: Logger, authGraphql: typeof graphql, input_json
 }
 
 // valid if we can access it and it's not archived 
-export async function validRepo(logger: Logger, authGraphql: typeof graphql, input_json: GraphqlInput): Promise<boolean> {
+export async function validRepo(logger: Logger, authGraphql: typeof graphql, inputJson: ValidRepoInput): Promise<boolean> {
 
       try {
-        const response = await authGraphql<RepoCheck>(IS_ARCHIVED_REPO, input_json);
+        const response = await authGraphql<RepoCheck>(IS_ARCHIVED_REPO, inputJson);
         return !(response.repository.isArchived); 
       }
 
@@ -138,10 +192,14 @@ export async function validRepo(logger: Logger, authGraphql: typeof graphql, inp
             return false; 
         }
 
-        logger.error(`Unknown error when validating repo: ${input_json.repo}, error: ${error}`);
+        logger.error(`Unknown error when validating repo: ${inputJson.repo}, error: ${error}`);
         return true; 
         
-      }
-        
-   
+      } 
+}
+
+export async function getTeamsRepos(logger: Logger, authGraphql: typeof graphql, inputJson: GetTeamsReposInput): Promise<TeamsRepositories> {
+
+    logger.info(`Attempting to retrieve team repositories for user ${inputJson.user_id}`)
+    return await authGraphql<TeamsRepositories>(GET_TEAM_REPOS, inputJson);
 }
