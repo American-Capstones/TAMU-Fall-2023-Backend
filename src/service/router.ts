@@ -6,7 +6,7 @@ import { Config } from '@backstage/config';
 import { Knex } from 'knex'
 import { graphql } from '@octokit/graphql'
 import { AddUserRepoRequestObject, DeleteUserRepoRequestObject, GetUserReposRequestObject, SetPRPriorityRequestObject, SetPRDescriptionRequestObject } from './api_types';
-import { TeamsRepositories, getReposData, getTeamsRepos, validRepo } from './pull_request_query';
+import { TeamsRepositories, getReposData, getTeamsRepos, validRepo, generateAnalyticsData } from './pull_request_query';
 import { PullRequestEntry, UserRepositoryEntry, pullRequestTable, userRepositoriesTable } from './database_types';
 
 export interface RouterOptions {
@@ -173,6 +173,76 @@ export async function createRouter(options: RouterOptions): Promise<express.Rout
       
       await getReposData(databaseClient, logger, authGraphql, repos, {organization, repository: ''}).then(output => response.send(output));
 
+    }
+    catch(error: any) {
+      logger.error(`Failed to retrieve repositories for ${user.user_id} from database, error: ${error}`);
+      response.status(500).send();
+      return;
+    }
+
+  });
+
+  // For the Analytics Dashboard
+  router.get('/get-analytics-info/:user_id', async (request, response) => {
+    
+    const user: GetUserReposRequestObject = request.params;
+
+    // Get the repos for all of the user's teams
+    let teamRepos: TeamsRepositories; 
+    try {
+      teamRepos = await getTeamsRepos(logger, authGraphql, {organization, user_id: user.user_id});
+    }
+    catch(error: any) {
+      logger.error(`Failed to retrieve team repositories for ${user.user_id}, error: ${error}`);
+      response.status(500).send();
+      return;
+    }
+
+    try {
+      // first update database with all of the team's latest repos
+      const teams = teamRepos.organization.teams.nodes;
+
+      for (const team of teams) {
+        const repos = team.repositories.nodes;
+        for (const repo of repos) {
+          await databaseClient<UserRepositoryEntry>(userRepositoriesTable)
+          .insert({
+            user_id: user.user_id,
+            repository: repo.name,
+            display: true
+          }).onConflict().ignore(); // do not display repos with display set to false
+        }
+      }
+    }
+
+    catch(error: any) {
+      logger.error(`Failed to update team repositories for ${user.user_id} to database, error: ${error}`);
+      response.status(500).send();
+      return;
+    }
+    
+    // If not hidden get the pull request data for a particular repository
+    try {
+      const repos = await databaseClient<UserRepositoryEntry>(userRepositoriesTable)
+      .where({
+        user_id: user.user_id,
+        display: true 
+      }).select('repository');
+      
+      await getReposData(databaseClient, logger, authGraphql, repos, {organization, repository: ''})
+      .then(output => {
+        const analyticsData = generateAnalyticsData(output);
+        return analyticsData;
+      })
+      .then(analyticsInformation => {
+        response.send(analyticsInformation);
+      })
+      .catch(error => { // Catch any errors that occur during the promise chain
+        console.error('Error occured while generating analytics data:', error);
+        response.status(500).send('An error occured');
+      }
+
+      )
     }
     catch(error: any) {
       logger.error(`Failed to retrieve repositories for ${user.user_id} from database, error: ${error}`);

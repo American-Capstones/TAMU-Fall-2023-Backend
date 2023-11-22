@@ -38,6 +38,7 @@ interface PullRequest {
     number: number;
     title: string;
     state: string;
+    additions: number;
     body: string; 
     url: string;
     priority: string; 
@@ -107,6 +108,19 @@ export interface GetTeamsReposInput extends RequestParameters {
     user_id: string; 
 }
 
+// Function that Generates the Analytics Data
+export function generateAnalyticsData(repo_pull_request_data: string) : string {
+
+
+    let output = '';
+    console.log("calculating analytics data");
+    console.log(repo_pull_request_data);
+
+
+
+    return output
+}
+
 // repos type is knex.select return type
 export async function getReposData(databaseClient: Knex, logger: Logger, authGraphql: typeof graphql, repos: Pick<UserRepositoryEntry, 'repository'>[], graphqlInput: GetReposDataInput): Promise<string> {
     let out = []
@@ -124,7 +138,6 @@ export async function getReposData(databaseClient: Knex, logger: Logger, authGra
     }
     return JSON.stringify(out);
 }
-
 
 async function getPRData(databaseClient: Knex, logger: Logger, authGraphql: typeof graphql, inputJson: GetPRDataInput): Promise<PullRequestsData> {
     

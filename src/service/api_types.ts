@@ -24,3 +24,8 @@ export interface SetPRDescriptionRequestObject {
     pull_request_id: string; 
     description: string; 
 }
+
+export interface GetAnalyticsInformation {
+    user_id: string; 
+    repository: string; 
+}

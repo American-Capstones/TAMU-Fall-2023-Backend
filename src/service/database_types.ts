@@ -17,3 +17,5 @@ export interface UserRepositoryEntry {
     created_at: string;
     updated_at: string; 
 }
+
+//Maybe add table for storing analytics information?
