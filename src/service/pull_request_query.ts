@@ -88,6 +88,7 @@ interface RepoCheck {
     }
 }
 
+// Interface specifying the structure of returned Analytics information
 interface AnalyticsData {
     averageTimeToMerge: number;
     averageTimeToFirstReview: number;
@@ -119,6 +120,7 @@ export interface GetTeamsReposInput extends RequestParameters {
 function dateDifferenceInDays(date1: string, date2: string): number {
     const oneDay = 24*60*60*1000; // Number of milliseconds in a day
 
+    // Slice off the specific time of day to only take into account times of format XXXX-XX-XX
     const parsedDate1 = new Date(date1.slice(0,date1.indexOf('T')));
     const parsedDate2 = new Date(date2.slice(0,date2.indexOf('T')));
 
@@ -134,6 +136,8 @@ function dateDifferenceInDays(date1: string, date2: string): number {
 // Function that Generates the Analytics Data
 export async function getAnalyticsData(databaseClient: Knex, logger: Logger, authGraphql: typeof graphql, repos: Pick<UserRepositoryEntry, 'repository'>[], graphqlInput: GetReposDataInput): Promise<string> {
     let out = []
+
+    // Accumulate all pull request data for each repository
     for (const repo of repos) {
         try {
             const data = await getPRData(databaseClient, logger, authGraphql, {...graphqlInput, repository: repo.repository});
@@ -150,10 +154,12 @@ export async function getAnalyticsData(databaseClient: Knex, logger: Logger, aut
     // Now that I have collected all the data, if out is not empty, loop through all repos and calculate the analytics
     console.log('Calculating Analytics...')
 
+    // Helped interface for a dictionary of author names paired with x amount of contributions
     interface AuthorDictionary {
         [key: string]: number;
     }
     
+    // output for the function of type AnalyticsData
     let analytics: AnalyticsData = {
         averageTimeToMerge: 0,
         averageTimeToFirstReview: 0,
@@ -162,6 +168,7 @@ export async function getAnalyticsData(databaseClient: Knex, logger: Logger, aut
         top_pr_contributors: ['']
     }
 
+    // Variables used to accumulate all stats needed to calculate the final analytics
     let mergedPRs = 0
     let totalTimeToMerge = 0
     let reviewedPRs = 0
@@ -212,6 +219,7 @@ export async function getAnalyticsData(databaseClient: Knex, logger: Logger, aut
             for (const review of reviews) {
                 const review_author: string = review.author.login;
 
+                // Add the author to the reviewers dictionary and increment if it already exists
                 if (review_author in reviewers) {
                     reviewers[review_author] += reviewers[review_author];
                 }
@@ -222,22 +230,26 @@ export async function getAnalyticsData(databaseClient: Knex, logger: Logger, aut
         }
     }
 
+    // Calculate and set all averages
     analytics.averageTimeToFirstReview = totalTimeToFirstReview / reviewedPRs
     analytics.averageTimeToMerge = totalTimeToMerge / mergedPRs
     analytics.averagePRSize = totalPRSize / totalPRs
 
+    // Sort the prContributors dictionary into a list of Objects
     let sortedArray: any[] = Object.keys(prContributors).map(key => ({key, value: prContributors[key]}));
     sortedArray.sort((a,b) => b.value - a.value)
+    // Set the analytics attribute to the sorted array
     analytics.top_pr_contributors = sortedArray
     
+    // Sort the prContributors dictionary into a list of Objects
     let sortedArray2: any[] = Object.keys(reviewers).map(key => ({key, value: reviewers[key]}));
     sortedArray2.sort((a,b) => b.value - a.value)
+    // Set the analytics attribute to the sorted array
     analytics.top_reviewers = sortedArray
 
-    console.log(out)
+    // log for a sanity check
     console.log(analytics)
     
-
     return JSON.stringify(analytics);
 }
 
