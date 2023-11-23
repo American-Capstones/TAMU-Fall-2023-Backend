@@ -88,6 +88,14 @@ interface RepoCheck {
     }
 }
 
+interface AnalyticsData {
+    averageTimeToMerge: number;
+    averageTimeToFirstReview: number;
+    averagePRSize: number;
+    top_reviewers: string[]; // list holding all people who have reviewed pull requests
+    top_pr_contributors: string[]; // list holding all author's of pull requests
+}
+
 export interface GetReposDataInput extends RequestParameters {
     organization: string; 
     repository: string; 
@@ -109,16 +117,33 @@ export interface GetTeamsReposInput extends RequestParameters {
 }
 
 // Function that Generates the Analytics Data
-export function generateAnalyticsData(repo_pull_request_data: string) : string {
+export async function getAnalyticsData(databaseClient: Knex, logger: Logger, authGraphql: typeof graphql, repos: Pick<UserRepositoryEntry, 'repository'>[], graphqlInput: GetReposDataInput): Promise<string> {
+    let out = []
+    for (const repo of repos) {
+        try {
+            const data = await getPRData(databaseClient, logger, authGraphql, {...graphqlInput, repository: repo.repository});
+            out.push({repository: repo.repository, data: data.repository.pullRequests.nodes});
+        }
 
+        catch(error: any) {
+            logger.error(`Failed to get PR data for repository ${repo.repository}, error: ${error}`);
+            // might happen if repo gets deleted? 
+            // continue trying to get other repos
+        }
+    }
 
-    let output = '';
-    console.log("calculating analytics data");
-    console.log(repo_pull_request_data);
+    // Now that I have collected all the data, if out is not empty, loop through all repos and calculate the analytics
+    let analytics: AnalyticsData = {
+        averageTimeToMerge: 0,
+        averageTimeToFirstReview: 0,
+        averagePRSize: 0,
+        top_reviewers: [''], // list holding all people who have reviewed pull requests
+        top_pr_contributors: ['']
+    }
+    
+    console.log('Calculating Analytics...')
 
-
-
-    return output
+    return JSON.stringify(out);
 }
 
 // repos type is knex.select return type

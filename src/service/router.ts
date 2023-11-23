@@ -6,7 +6,7 @@ import { Config } from '@backstage/config';
 import { Knex } from 'knex'
 import { graphql } from '@octokit/graphql'
 import { AddUserRepoRequestObject, DeleteUserRepoRequestObject, GetUserReposRequestObject, SetPRPriorityRequestObject, SetPRDescriptionRequestObject } from './api_types';
-import { TeamsRepositories, getReposData, getTeamsRepos, validRepo, generateAnalyticsData } from './pull_request_query';
+import { TeamsRepositories, getReposData, getTeamsRepos, validRepo, getAnalyticsData } from './pull_request_query';
 import { PullRequestEntry, UserRepositoryEntry, pullRequestTable, userRepositoriesTable } from './database_types';
 
 export interface RouterOptions {
@@ -229,20 +229,11 @@ export async function createRouter(options: RouterOptions): Promise<express.Rout
         display: true 
       }).select('repository');
       
-      await getReposData(databaseClient, logger, authGraphql, repos, {organization, repository: ''})
-      .then(output => {
-        const analyticsData = generateAnalyticsData(output);
-        return analyticsData;
-      })
+      // Get the analytics data
+      await getAnalyticsData(databaseClient, logger, authGraphql, repos, {organization, repository: ''})
       .then(analyticsInformation => {
         response.send(analyticsInformation);
       })
-      .catch(error => { // Catch any errors that occur during the promise chain
-        console.error('Error occured while generating analytics data:', error);
-        response.status(500).send('An error occured');
-      }
-
-      )
     }
     catch(error: any) {
       logger.error(`Failed to retrieve repositories for ${user.user_id} from database, error: ${error}`);
