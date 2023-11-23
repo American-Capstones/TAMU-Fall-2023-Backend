@@ -116,6 +116,21 @@ export interface GetTeamsReposInput extends RequestParameters {
     user_id: string; 
 }
 
+function dateDifferenceInDays(date1: string, date2: string): number {
+    const oneDay = 24*60*60*1000; // Number of milliseconds in a day
+
+    const parsedDate1 = new Date(date1.slice(0,date1.indexOf('T')));
+    const parsedDate2 = new Date(date2.slice(0,date2.indexOf('T')));
+
+    // Calculate difference in MS between the dates (getTime() gives the MS since epoch for the date)
+    const differenceInMS = Math.abs(parsedDate1.getTime() - parsedDate2.getTime());
+
+    // Convert to Days
+    const differenceInDays = Math.round(differenceInMS / oneDay);
+
+    return differenceInDays;
+}
+
 // Function that Generates the Analytics Data
 export async function getAnalyticsData(databaseClient: Knex, logger: Logger, authGraphql: typeof graphql, repos: Pick<UserRepositoryEntry, 'repository'>[], graphqlInput: GetReposDataInput): Promise<string> {
     let out = []
@@ -134,6 +149,10 @@ export async function getAnalyticsData(databaseClient: Knex, logger: Logger, aut
 
     // Now that I have collected all the data, if out is not empty, loop through all repos and calculate the analytics
     console.log('Calculating Analytics...')
+
+    interface AuthorDictionary {
+        [key: string]: number;
+    }
     
     let analytics: AnalyticsData = {
         averageTimeToMerge: 0,
@@ -143,13 +162,80 @@ export async function getAnalyticsData(databaseClient: Knex, logger: Logger, aut
         top_pr_contributors: ['']
     }
 
+    let mergedPRs = 0
     let totalTimeToMerge = 0
+    let reviewedPRs = 0
     let totalTimeToFirstReview = 0
+    let totalPRs = 0
     let totalPRSize = 0
-    let reviewers = ['']
-    let pr_contributors = ['']
+    let reviewers: AuthorDictionary = {}
+    let prContributors: AuthorDictionary = {}
+
+    // Loop through all repositories
+    for (let i = 0; i < out.length; i++) {
+        // Get all pull requests for a single repository
+        const repo_pull_requests: PullRequest[] = out[i].data;
+
+        // Loop through all pull requests for the single repository
+        for (const pr of repo_pull_requests) {
+            // If the pull request has been merged, calculate the total time taken to merge
+            if (pr.state == 'MERGED') {
+                // Increment the total count of merged pull requests
+                mergedPRs++;
+                totalTimeToMerge += dateDifferenceInDays(pr.updatedAt, pr.createdAt);
+            }
+
+            // If the pull request has been reviewed, calculate the total time taken to review
+            if (pr.reviews.nodes.length > 0) {
+                // Increment the total count of reviewed pull requests
+                reviewedPRs++;
+                totalTimeToFirstReview += dateDifferenceInDays(pr.createdAt, pr.reviews.nodes[0].createdAt);
+            }
+
+            // Sum up the size of the pull request
+            totalPRs++
+            totalPRSize += pr.additions;
+
+            // Add the author of the pull request to a dictionary holding all authors and their amount of contributions
+            const pr_author: string = pr.author.login
+            if (pr_author in prContributors) {
+                prContributors[pr_author] += prContributors[pr_author];
+            }
+            else {
+                prContributors[pr_author] = 1;
+            }
+
+            // Get all reviews for a single pull request
+            const reviews: Review[] = pr.reviews.nodes;
+            
+            // Loop through all reviews and add all authors to the dictionary, or increment their amount of reviews
+            for (const review of reviews) {
+                const review_author: string = review.author.login;
+
+                if (review_author in reviewers) {
+                    prContributors[review_author] += reviewers[pr_author];
+                }
+                else {
+                    reviewers[review_author] = 1;
+                }
+            }
+        }
+    }
+
+    analytics.averageTimeToFirstReview = totalTimeToFirstReview / reviewedPRs
+    analytics.averageTimeToMerge = totalTimeToMerge / mergedPRs
+    analytics.averagePRSize = totalPRSize / totalPRs
+
+    let sortedArray: any[] = Object.keys(prContributors).map(key => ({key, value: prContributors[key]}));
+    sortedArray.sort((a,b) => b.value - a.value)
+    analytics.top_pr_contributors = sortedArray
+    
+    let sortedArray2: any[] = Object.keys(reviewers).map(key => ({key, value: reviewers[key]}));
+    sortedArray2.sort((a,b) => b.value - a.value)
+    analytics.top_reviewers = sortedArray
 
     console.log(out)
+    console.log(analytics)
     
 
     return JSON.stringify(analytics);
