@@ -213,7 +213,7 @@ export async function getAnalyticsData(databaseClient: Knex, logger: Logger, aut
                 const review_author: string = review.author.login;
 
                 if (review_author in reviewers) {
-                    prContributors[review_author] += reviewers[review_author];
+                    reviewers[review_author] += reviewers[review_author];
                 }
                 else {
                     reviewers[review_author] = 1;
