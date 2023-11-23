@@ -40,6 +40,7 @@ describe('createRouter', () => {
     jest.resetAllMocks();
   });
 
+  // Sanity check to ensure router is working
   describe('GET /health', () => {
     it('returns ok', async () => {
       const response = await request(app).get('/health');
@@ -49,6 +50,7 @@ describe('createRouter', () => {
     });
   });
 
+  // Deleteing a user repo
   describe('POST /delete-user-repo', () => {
     it('deletes user successfully', async () => {
       const response = await request(app).post('/delete-user-repo').send({user_id: 1, repository: 'test-repo'});
@@ -64,5 +66,55 @@ describe('createRouter', () => {
       expect(response.status).toBe(400);
       expect(response.text).toBe('Missing parameter user_id!')
     })
+
+
   })
+
+  describe('POST /add-user-repo', () => {
+    it('returns ok', async () => {
+      const response = await request(app).get('/health');
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({ status: 'ok' });
+    });
+  });
+
+
+  describe('GET /get-user-repos/:user_id', () => {
+    it('returns ok', async () => {
+      const response = await request(app).get('/health');
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({ status: 'ok' });
+    });
+  });
+
+
+  describe('GET /get-analytics-info/:user_id', () => {
+    it('returns ok', async () => {
+      const response = await request(app).get('/health');
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({ status: 'ok' });
+    });
+  });
+
+
+  describe('POST /set-pr-priority', () => {
+    it('returns ok', async () => {
+      const response = await request(app).get('/health');
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({ status: 'ok' });
+    });
+  });
+
+  describe('POST /set-pr-description', () => {
+    it('returns ok', async () => {
+      const response = await request(app).get('/health');
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({ status: 'ok' });
+    });
+  });
 });

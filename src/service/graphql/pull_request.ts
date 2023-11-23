@@ -1,16 +1,3 @@
-/*
-TODO: Supported Analytics:
- * average time to merge
- * average time to first review
- * average PR size
- * top reviewer
- * top pull request contributor
- * % open/closed pull requests
-
- This piggy backs off of the GET_REPO_DATA and will store things in the postgres table 
-*/
-
-
 export const GET_REPO_DATA = `
 query getRepoName($organization: String!, $repository: String!) {
   repository(owner: $organization, name: $repository) {
