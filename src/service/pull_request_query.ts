@@ -133,6 +133,8 @@ export async function getAnalyticsData(databaseClient: Knex, logger: Logger, aut
     }
 
     // Now that I have collected all the data, if out is not empty, loop through all repos and calculate the analytics
+    console.log('Calculating Analytics...')
+    
     let analytics: AnalyticsData = {
         averageTimeToMerge: 0,
         averageTimeToFirstReview: 0,
@@ -140,10 +142,17 @@ export async function getAnalyticsData(databaseClient: Knex, logger: Logger, aut
         top_reviewers: [''], // list holding all people who have reviewed pull requests
         top_pr_contributors: ['']
     }
-    
-    console.log('Calculating Analytics...')
 
-    return JSON.stringify(out);
+    let totalTimeToMerge = 0
+    let totalTimeToFirstReview = 0
+    let totalPRSize = 0
+    let reviewers = ['']
+    let pr_contributors = ['']
+
+    console.log(out)
+    
+
+    return JSON.stringify(analytics);
 }
 
 // repos type is knex.select return type
