@@ -1,9 +1,8 @@
-import { errorHandler } from '@backstage/backend-common';
+import { errorHandler, PluginDatabaseManager, resolvePackagePath } from '@backstage/backend-common';
 import express from 'express';
 import Router from 'express-promise-router';
 import { Logger } from 'winston';
 import { Config } from '@backstage/config';
-import { PluginDatabaseManager, resolvePackagePath } from '@backstage/backend-common';
 import { Knex } from 'knex'
 import { graphql } from '@octokit/graphql'
 import { AddUserRepoRequestObject, DeleteUserRepoRequestObject, GetUserReposRequestObject, SetPRPriorityRequestObject, SetPRDescriptionRequestObject, GetAnalyticsRequestObject, GetAnalyticsResponseObject } from './api_types';
@@ -30,8 +29,7 @@ async function applyDatabaseMigrations(knex: Knex): Promise<void> {
 export async function createRouter(options: RouterOptions): Promise<express.Router> {
   const { logger, config, database } = options;
   const databaseClient = await database.getClient();
-  await applyDatabaseMigrations(databaseClient as unknown as Knex);
-
+  await applyDatabaseMigrations(databaseClient);
 
   const authToken: string = config.getString('pr-tracker-backend.auth_token');
   const organization: string = config.getString('pr-tracker-backend.organization'); // owner of the repository

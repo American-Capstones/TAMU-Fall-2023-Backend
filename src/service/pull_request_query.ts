@@ -318,14 +318,14 @@ async function getPRData(databaseClient: Knex, logger: Logger, authGraphql: type
         // set pr priority and description
 
         try {
-            const pr_props = await databaseClient<PullRequestEntry>(pullRequestTable)
+            const prProps = await databaseClient<PullRequestEntry>(pullRequestTable)
             .where({
                 pull_request_id: pullRequest.id
             }).first();
 
-            if (pr_props !== undefined) {
-                pullRequest.priority = pr_props.priority;
-                pullRequest.description = pr_props.description; 
+            if (prProps !== undefined) {
+                pullRequest.priority = prProps.priority;
+                pullRequest.description = prProps.description; 
             }
             else {
                 pullRequest.priority = 'None';
@@ -378,8 +378,8 @@ export async function validRepo(logger: Logger, authGraphql: typeof graphql, inp
       } 
 }
 
-export async function getTeamsRepos(logger: Logger, authGraphql: typeof graphql, input_json: GetTeamsReposInput): Promise<TeamsRepositories> {
+export async function getTeamsRepos(logger: Logger, authGraphql: typeof graphql, inputJson: GetTeamsReposInput): Promise<TeamsRepositories> {
 
-    logger.info(`Attempting to retrieve team repositories for user ${input_json.user_id}`)
-    return await authGraphql<TeamsRepositories>(GET_TEAM_REPOS, input_json);
+    logger.info(`Attempting to retrieve team repositories for user ${inputJson.user_id}`)
+    return await authGraphql<TeamsRepositories>(GET_TEAM_REPOS, inputJson);
 }
