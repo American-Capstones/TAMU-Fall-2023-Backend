@@ -14,7 +14,6 @@ query getRepoName($organization: String!, $repository: String!) {
         number
         title
         state
-        additions
         body
         url
         createdAt
