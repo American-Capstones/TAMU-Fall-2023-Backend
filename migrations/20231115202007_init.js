@@ -17,7 +17,7 @@ exports.up = function(knex) {
     table.boolean('display').notNullable();
     table.primary(['user_id', 'repository']);
     table.timestamps(true, true);
-  })
+  });
 };
 
 /**

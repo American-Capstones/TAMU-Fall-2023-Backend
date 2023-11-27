@@ -5,9 +5,9 @@ import { Logger } from 'winston';
 import { Config } from '@backstage/config';
 import { Knex } from 'knex'
 import { graphql } from '@octokit/graphql'
-import { AddUserRepoRequestObject, DeleteUserRepoRequestObject, GetUserReposRequestObject, SetPRPriorityRequestObject, SetPRDescriptionRequestObject } from './api_types';
-import { TeamsRepositories, getReposData, getTeamsRepos, validRepo, getAnalyticsData } from './pull_request_query';
-import { PullRequestEntry, UserRepositoryEntry, pullRequestTable, userRepositoriesTable } from './database_types';
+import { AddUserRepoRequestObject, DeleteUserRepoRequestObject, GetUserReposRequestObject, SetPRPriorityRequestObject, SetPRDescriptionRequestObject, GetAnalyticsRequestObject, GetAnalyticsResponseObject } from './api_types';
+import { TeamsRepositories, getReposData, getTeamsRepos, updateRepositoryAnalytics, validRepo } from './pull_request_query';
+import { PullRequestEntry, UserRepositoryEntry, pullRequestTable, repositoryAnalyticsEntry, repositoryAnalyticsTable, userAnalyticsEntry, userAnalyticsTable, userRepositoriesTable } from './database_types';
 
 export interface RouterOptions {
   logger: Logger;
@@ -21,10 +21,10 @@ async function applyDatabaseMigrations(knex: Knex): Promise<void> {
     'migrations'
   );
 
-  await knex.migrate.up({
+  await knex.migrate.latest({
     directory: migrationsDir,
   });
-}
+}//
 
 export async function createRouter(options: RouterOptions): Promise<express.Router> {
   const { logger, config, database } = options;
@@ -171,69 +171,8 @@ export async function createRouter(options: RouterOptions): Promise<express.Rout
         display: true 
       }).select('repository');
       
-      await getReposData(databaseClient, logger, authGraphql, repos, {organization, repository: ''}).then(output => response.send(output));
+      await getReposData(databaseClient, logger, authGraphql, {organization, repository: '', repos}).then(output => response.send(output));
 
-    }
-    catch(error: any) {
-      logger.error(`Failed to retrieve repositories for ${user.user_id} from database, error: ${error}`);
-      response.status(500).send();
-      return;
-    }
-
-  });
-
-  // For the Analytics Dashboard
-  router.get('/get-analytics-info/:user_id', async (request, response) => {
-    
-    const user: GetUserReposRequestObject = request.params;
-
-    // Get the repos for all of the user's teams
-    let teamRepos: TeamsRepositories; 
-    try {
-      teamRepos = await getTeamsRepos(logger, authGraphql, {organization, user_id: user.user_id});
-    }
-    catch(error: any) {
-      logger.error(`Failed to retrieve team repositories for ${user.user_id}, error: ${error}`);
-      response.status(500).send();
-      return;
-    }
-
-    try {
-      // first update database with all of the team's latest repos
-      const teams = teamRepos.organization.teams.nodes;
-
-      for (const team of teams) {
-        const repos = team.repositories.nodes;
-        for (const repo of repos) {
-          await databaseClient<UserRepositoryEntry>(userRepositoriesTable)
-          .insert({
-            user_id: user.user_id,
-            repository: repo.name,
-            display: true
-          }).onConflict().ignore(); // do not display repos with display set to false
-        }
-      }
-    }
-
-    catch(error: any) {
-      logger.error(`Failed to update team repositories for ${user.user_id} to database, error: ${error}`);
-      response.status(500).send();
-      return;
-    }
-    
-    // If not hidden get the pull request data for a particular repository
-    try {
-      const repos = await databaseClient<UserRepositoryEntry>(userRepositoriesTable)
-      .where({
-        user_id: user.user_id,
-        display: true 
-      }).select('repository');
-      
-      // Get the analytics data
-      await getAnalyticsData(databaseClient, logger, authGraphql, repos, {organization, repository: ''})
-      .then(analyticsInformation => {
-        response.send(analyticsInformation);
-      })
     }
     catch(error: any) {
       logger.error(`Failed to retrieve repositories for ${user.user_id} from database, error: ${error}`);
@@ -328,6 +267,82 @@ export async function createRouter(options: RouterOptions): Promise<express.Rout
     response.status(200).send();
     
   });
+
+  router.get('/get-analytics/:user_id', async (request, response) => {
+
+    const user: GetAnalyticsRequestObject = request.params;
+    const repos = await databaseClient<UserRepositoryEntry>(userRepositoriesTable)
+                  .where({
+                    user_id: user.user_id,
+                    display: true,
+                  });
+    
+    // calculate data for repos the user is interested in
+    // this could take a while first time when the repos are large
+    const curYear = new Date().getFullYear();
+    const res: GetAnalyticsResponseObject = {};
+    for (const repo of repos) {
+      await updateRepositoryAnalytics(databaseClient, logger, authGraphql, {organization, repository: repo.repository});
+    }
+
+    for (const repo of repos) {
+      res[repo.repository] = { cycleTimeData: [], firstReviewData: [], leaderBoard: {}, totalPullRequestsMerged: []};
+      for (let yearDiff = 0; yearDiff < 5; ++yearDiff) {
+        // repo analytics
+
+        const repoData = await databaseClient<repositoryAnalyticsEntry>(repositoryAnalyticsTable)
+                          .where({
+                            repository: repo.repository,
+                            year: curYear-yearDiff,
+                          })
+        
+        const yearCycleTimeData = [curYear-yearDiff];
+        const yearFirstReviewData = [curYear-yearDiff];
+        const yearPRmergedData = [curYear-yearDiff]; 
+        for (let i = 0; i < 12; ++i) {
+          yearCycleTimeData.push(-1);
+          yearFirstReviewData.push(-1);
+          yearPRmergedData.push(-1);
+        }
+        
+        for (const entry of repoData) {
+          yearCycleTimeData[entry.month] = Number((Math.round((entry.total_cycle_time / entry.total_pull_requests_merged)*100)/100).toFixed(2));
+          yearFirstReviewData[entry.month] = Number((Math.round((entry.total_first_review_time / entry.total_pull_requests_merged)*100)/100).toFixed(2));
+          yearPRmergedData[entry.month] = entry.total_pull_requests_merged;
+        }
+
+        res[repo.repository].cycleTimeData.push(yearCycleTimeData);
+        res[repo.repository].firstReviewData.push(yearFirstReviewData);
+        res[repo.repository].totalPullRequestsMerged.push(yearPRmergedData);
+
+        // leaderboard
+        const userData = await databaseClient<userAnalyticsEntry>(userAnalyticsTable)
+                        .where({
+                          repository: repo.repository,
+                          year: curYear-yearDiff,
+                        });
+        res[repo.repository].leaderBoard[curYear-yearDiff] = {}
+        for (let month = 1; month <= 12; ++month) {
+          res[repo.repository].leaderBoard[curYear-yearDiff][month] = []
+        }
+        for (const entry of userData) {
+          res[repo.repository].leaderBoard[curYear-yearDiff][entry.month].push(entry);
+        }
+        
+
+        // sort leaderboard
+        const score = (user: userAnalyticsEntry) => {return user.pull_requests_merged + 0.375*user.pull_requests_reviews + 0.15*user.pull_requests_comments;};
+        for (let month = 1; month <= 12; ++month) {
+          res[repo.repository].leaderBoard[curYear-yearDiff][month].sort((user1, user2) => score(user2)-score(user1)); // higher scores first
+        }
+        
+      }
+    }
+    
+    response.send(JSON.stringify(res));
+  })
+
+  
 
   router.use(errorHandler());
   return router;

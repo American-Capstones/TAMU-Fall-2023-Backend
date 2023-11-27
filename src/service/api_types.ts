@@ -1,6 +1,8 @@
 
 // add user's auth token? 
 
+import { userAnalyticsEntry } from "./database_types";
+
 export interface AddUserRepoRequestObject {
     user_id: string; 
     repository: string; 
@@ -25,7 +27,20 @@ export interface SetPRDescriptionRequestObject {
     description: string; 
 }
 
-export interface GetAnalyticsInformation {
+export interface GetAnalyticsRequestObject {
     user_id: string; 
-    repository: string; 
+}
+
+
+export interface GetAnalyticsResponseObject {
+    [repository: string]: {
+        cycleTimeData: number[][], // 13 values - first the year and then monthly cycle time averages
+        firstReviewData: number[][], // 13 values - first the year and then monthly cycle time averages
+        totalPullRequestsMerged: number[][], // 13 values ... 
+        leaderBoard: {
+            [year: number]: {
+                [month: number]: userAnalyticsEntry[]
+            }
+        }
+    }
 }

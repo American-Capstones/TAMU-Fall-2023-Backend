@@ -1,9 +1,10 @@
 import { graphql, GraphqlResponseError } from '@octokit/graphql';
-import { GET_REPO_DATA, IS_ARCHIVED_REPO, GET_TEAM_REPOS } from './graphql/pull_request';
+import { GET_REPO_DATA, IS_ARCHIVED_REPO, GET_TEAM_REPOS, UPDATE_REPOSITORY_ANALYTICS, INIT_REPOSITORY_ANALYTICS } from './graphql/pull_request';
 import { RequestParameters } from '@octokit/types'
 import { Logger } from 'winston';
-import { UserRepositoryEntry, pullRequestTable, PullRequestEntry } from './database_types';
-import { Knex } from 'knex';
+import { repositoryAnalyticsEntry, repositoryAnalyticsTable, repositoryCursorsEntry, repositoryCursorsTable, userAnalyticsEntry, userAnalyticsTable, userRepositoriesTable, UserRepositoryEntry } from './database_types';
+import knex, { Knex } from 'knex';
+import { pullRequestTable, PullRequestEntry } from './database_types'
 
 interface Comment {
     author: {
@@ -19,7 +20,9 @@ interface Review {
     author: {
         login: string;
     };
-    comments: Comment[];
+    comments: {
+        nodes: Comment[];
+    }
     body: string;
     state: string;
     createdAt: string;
@@ -38,15 +41,17 @@ interface PullRequest {
     number: number;
     title: string;
     state: string;
-    additions: number;
     body: string; 
     url: string;
+    additions: number;
+    deletions: number;
     priority: string; 
     description: string; 
     stateDuration: number; 
     numApprovals: number; 
     createdAt: string;
     updatedAt: string;
+    mergedAt: string; 
     author: {
         login: string;
     };
@@ -60,6 +65,12 @@ interface PullRequest {
 interface PullRequestsData {
     repository: {
         pullRequests: {
+            pageInfo: {
+                hasPreviousPage: boolean;
+                hasNextPage: boolean;
+                startCursor: string | null; 
+                endCursor: string | null; 
+              }
             nodes: PullRequest[];
         };
     };
@@ -88,18 +99,11 @@ interface RepoCheck {
     }
 }
 
-// Interface specifying the structure of returned Analytics information
-interface AnalyticsData {
-    averageTimeToMerge: number;
-    averageTimeToFirstReview: number;
-    averagePRSize: number;
-    top_reviewers: string[]; // list holding all people who have reviewed pull requests
-    top_pr_contributors: string[]; // list holding all author's of pull requests
-}
 
 export interface GetReposDataInput extends RequestParameters {
     organization: string; 
     repository: string; 
+    repos: Pick<UserRepositoryEntry, 'repository'>[];
 }
 
 export interface GetPRDataInput extends RequestParameters {
@@ -117,148 +121,177 @@ export interface GetTeamsReposInput extends RequestParameters {
     user_id: string; 
 }
 
-function dateDifferenceInDays(date1: string, date2: string): number {
-    const oneDay = 24*60*60*1000; // Number of milliseconds in a day
-
-    // Slice off the specific time of day to only take into account times of format XXXX-XX-XX
-    const parsedDate1 = new Date(date1.slice(0,date1.indexOf('T')));
-    const parsedDate2 = new Date(date2.slice(0,date2.indexOf('T')));
-
-    // Calculate difference in MS between the dates (getTime() gives the MS since epoch for the date)
-    const differenceInMS = Math.abs(parsedDate1.getTime() - parsedDate2.getTime());
-
-    // Convert to Days
-    const differenceInDays = Math.round(differenceInMS / oneDay);
-
-    return differenceInDays;
+export interface UpdateRepositoryAnalyticsInput extends RequestParameters {
+    organization: string; 
+    repository: string; 
 }
 
-// Function that Generates the Analytics Data
-export async function getAnalyticsData(databaseClient: Knex, logger: Logger, authGraphql: typeof graphql, repos: Pick<UserRepositoryEntry, 'repository'>[], graphqlInput: GetReposDataInput): Promise<string> {
-    let out = []
-
-    // Accumulate all pull request data for each repository
-    for (const repo of repos) {
-        try {
-            const data = await getPRData(databaseClient, logger, authGraphql, {...graphqlInput, repository: repo.repository});
-            out.push({repository: repo.repository, data: data.repository.pullRequests.nodes});
-        }
-
-        catch(error: any) {
-            logger.error(`Failed to get PR data for repository ${repo.repository}, error: ${error}`);
-            // might happen if repo gets deleted? 
-            // continue trying to get other repos
-        }
-    }
-
-    // Now that I have collected all the data, if out is not empty, loop through all repos and calculate the analytics
-    console.log('Calculating Analytics...')
-
-    // Helped interface for a dictionary of author names paired with x amount of contributions
-    interface AuthorDictionary {
-        [key: string]: number;
-    }
+async function calculateAnalytics(inputJson: UpdateRepositoryAnalyticsInput, databaseClient: Knex, logger: Logger, data: PullRequestsData) {
+    const pullRequests = data.repository.pullRequests.nodes;
+    const hourDifference = (t1: Date, t2: Date) => {return Math.round(Math.abs((t1.getTime()-t2.getTime())/(1000*60*60)))};
     
-    // output for the function of type AnalyticsData
-    let analytics: AnalyticsData = {
-        averageTimeToMerge: 0,
-        averageTimeToFirstReview: 0,
-        averagePRSize: 0,
-        top_reviewers: [''], // list holding all people who have reviewed pull requests
-        top_pr_contributors: ['']
+    for (const pullRequest of pullRequests) {
+        // update repository analytics
+        
+        const createdAt = new Date(pullRequest.createdAt);
+        const mergedAt = new Date(pullRequest.mergedAt);
+        const firstReviewTime = pullRequest.reviews.nodes.length > 0 ? 
+        hourDifference(new Date(pullRequest.reviews.nodes[0].createdAt), createdAt) : 0;
+        // increment if it already exists
+        await databaseClient<repositoryAnalyticsEntry>(repositoryAnalyticsTable)
+            .insert({
+                repository: inputJson.repository,
+                year: mergedAt.getFullYear(),
+                month: mergedAt.getMonth()+1,
+                total_pull_requests_merged: 1,
+                total_cycle_time: hourDifference(mergedAt, createdAt), // hours 
+                total_first_review_time: firstReviewTime, // github reviews seem sorted by timestamp
+            })
+            .onConflict(['repository', 'year', 'month'])
+            .merge({
+                total_pull_requests_merged: databaseClient.raw('?? + ?', [`${repositoryAnalyticsTable}.total_pull_requests_merged`, 1]),
+                total_cycle_time: databaseClient.raw('?? + ?', [`${repositoryAnalyticsTable}.total_cycle_time`, hourDifference(mergedAt, createdAt)]),
+                total_first_review_time: databaseClient.raw('?? + ?', [`${repositoryAnalyticsTable}.total_first_review_time`, firstReviewTime])
+            });
+
+        
+        // update author
+        if (pullRequest.author !== undefined) {
+            await databaseClient<userAnalyticsEntry>(userAnalyticsTable)
+            .insert({
+                repository: inputJson.repository,
+                user_id: pullRequest.author.login,
+                year: mergedAt.getFullYear(),
+                month: mergedAt.getMonth()+1,
+                additions: pullRequest.additions,
+                deletions: pullRequest.deletions,
+                pull_requests_merged: 1,
+                pull_requests_reviews: 0,
+                pull_requests_comments: 0,
+            })
+            .onConflict(['repository', 'user_id', 'year', 'month'])
+            .merge({
+                additions: databaseClient.raw('?? + ?', [`${userAnalyticsTable}.additions`, pullRequest.additions]),
+                deletions: databaseClient.raw('?? + ?', [`${userAnalyticsTable}.deletions`, pullRequest.deletions]),
+                pull_requests_merged: databaseClient.raw('?? + ?', [`${userAnalyticsTable}.pull_requests_merged`, 1]),
+            });
+        }
+        
+        // update reviewers and commenters
+        for (const review of pullRequest.reviews.nodes) {
+            const createdAt = new Date(review.createdAt);
+            await databaseClient<userAnalyticsEntry>(userAnalyticsTable)
+            .insert({
+                repository: inputJson.repository,
+                user_id: review.author.login,
+                year: createdAt.getFullYear(),
+                month: createdAt.getMonth()+1, 
+                additions: 0,
+                deletions: 0,
+                pull_requests_merged: 0,
+                pull_requests_reviews: 1,
+                pull_requests_comments: 0,
+            })
+            .onConflict(['repository', 'user_id', 'year', 'month'])
+            .merge({
+                pull_requests_reviews: databaseClient.raw('??+?', [`${userAnalyticsTable}.pull_requests_reviews`, 1])
+            })
+            for (const comment of review.comments.nodes) {
+                const createdAt = new Date(comment.createdAt);
+                await databaseClient<userAnalyticsEntry>(userAnalyticsTable)
+                .insert({
+                    repository: inputJson.repository,
+                    user_id: comment.author.login,
+                    year: createdAt.getFullYear(),
+                    month: createdAt.getMonth()+1, 
+                    additions: 0,
+                    deletions: 0,
+                    pull_requests_merged: 0,
+                    pull_requests_reviews: 1,
+                    pull_requests_comments: 0,
+                })
+                .onConflict(['repository', 'user_id', 'year', 'month'])
+                .merge({
+                    pull_requests_comments: databaseClient.raw('??+?', [`${userAnalyticsTable}.pull_requests_comments`, 1])
+                })
+            }
+        }
+
     }
+}
 
-    // Variables used to accumulate all stats needed to calculate the final analytics
-    let mergedPRs = 0
-    let totalTimeToMerge = 0
-    let reviewedPRs = 0
-    let totalTimeToFirstReview = 0
-    let totalPRs = 0
-    let totalPRSize = 0
-    let reviewers: AuthorDictionary = {}
-    let prContributors: AuthorDictionary = {}
+export async function updateRepositoryAnalytics(databaseClient: Knex, logger: Logger, authGraphql: typeof graphql,
+inputJson: UpdateRepositoryAnalyticsInput) {
 
-    // Loop through all repositories
-    for (let i = 0; i < out.length; i++) {
-        // Get all pull requests for a single repository
-        const repo_pull_requests: PullRequest[] = out[i].data;
+       try {
+            // only 1 client should be doing this per repo so it's a serializable transaction
+            await databaseClient.transaction(async trx => {
 
-        // Loop through all pull requests for the single repository
-        for (const pr of repo_pull_requests) {
-            // If the pull request has been merged, calculate the total time taken to merge
-            if (pr.state == 'MERGED') {
-                // Increment the total count of merged pull requests
-                mergedPRs++;
-                totalTimeToMerge += dateDifferenceInDays(pr.updatedAt, pr.createdAt);
-            }
-
-            // If the pull request has been reviewed, calculate the total time taken to review
-            if (pr.reviews.nodes.length > 0) {
-                // Increment the total count of reviewed pull requests
-                reviewedPRs++;
-                totalTimeToFirstReview += dateDifferenceInDays(pr.createdAt, pr.reviews.nodes[0].createdAt);
-            }
-
-            // Sum up the size of the pull request
-            totalPRs++
-            totalPRSize += pr.additions;
-
-            // Add the author of the pull request to a dictionary holding all authors and their amount of contributions
-            const pr_author: string = pr.author.login
-            if (pr_author in prContributors) {
-                prContributors[pr_author] += prContributors[pr_author];
-            }
-            else {
-                prContributors[pr_author] = 1;
-            }
-
-            // Get all reviews for a single pull request
-            const reviews: Review[] = pr.reviews.nodes;
-            
-            // Loop through all reviews and add all authors to the dictionary, or increment their amount of reviews
-            for (const review of reviews) {
-                const review_author: string = review.author.login;
-
-                // Add the author to the reviewers dictionary and increment if it already exists
-                if (review_author in reviewers) {
-                    reviewers[review_author] += reviewers[review_author];
+                const repoEntry = await trx<repositoryCursorsEntry>(repositoryCursorsTable)
+                                .where({
+                                    repository: inputJson.repository
+                                }).first();
+                
+                if (repoEntry === undefined) {
+                    logger.info(`Adding new repository cursor ${inputJson.repository}`)
+                    await trx<repositoryCursorsEntry>(repositoryCursorsTable)
+                    .insert({
+                        repository: inputJson.repository,
+                    });
+                    
+                    // load last 1000 pull requests
+                    let cursor = null; 
+                    for (let i = 0; i < 10; ++i) {
+                        const data: PullRequestsData = await authGraphql<PullRequestsData>(INIT_REPOSITORY_ANALYTICS, {...inputJson, cursor});
+                        if (i == 0 && data.repository.pullRequests.pageInfo.endCursor) {
+                            // update final cursor
+                            await trx<repositoryCursorsEntry>(repositoryCursorsTable)
+                            .where({
+                                repository: inputJson.repository
+                            })
+                            .update({
+                                cursor: data.repository.pullRequests.pageInfo.endCursor
+                            });
+                        }
+                        await calculateAnalytics(inputJson, databaseClient, logger, data);
+                        if (data.repository.pullRequests.pageInfo.hasPreviousPage) {
+                            cursor = data.repository.pullRequests.pageInfo.startCursor;
+                        } 
+                        else break;
+                    }
                 }
+
                 else {
-                    reviewers[review_author] = 1;
+                    const data = await authGraphql<PullRequestsData>(UPDATE_REPOSITORY_ANALYTICS, {...inputJson, cursor: repoEntry.cursor});
+                    await calculateAnalytics(inputJson, databaseClient, logger, data);
+                    // update cursor
+                    if (data.repository.pullRequests.pageInfo.endCursor !== null) {
+                        await trx<repositoryCursorsEntry>(repositoryCursorsTable)
+                        .where({
+                            repository: inputJson.repository
+                        })
+                        .update({
+                            cursor: data.repository.pullRequests.pageInfo.endCursor
+                        });
+                    };
                 }
-            }
-        }
-    }
+                
+            }, {isolationLevel: 'serializable'});
+       }
+       catch(error: any) {
+            logger.error(`Failed to update repository because of ${error}`);
+       }
 
-    // Calculate and set all averages
-    analytics.averageTimeToFirstReview = totalTimeToFirstReview / reviewedPRs
-    analytics.averageTimeToMerge = totalTimeToMerge / mergedPRs
-    analytics.averagePRSize = totalPRSize / totalPRs
-
-    // Sort the prContributors dictionary into a list of Objects
-    let sortedArray: any[] = Object.keys(prContributors).map(key => ({key, value: prContributors[key]}));
-    sortedArray.sort((a,b) => b.value - a.value)
-    // Set the analytics attribute to the sorted array
-    analytics.top_pr_contributors = sortedArray
-    
-    // Sort the prContributors dictionary into a list of Objects
-    let sortedArray2: any[] = Object.keys(reviewers).map(key => ({key, value: reviewers[key]}));
-    sortedArray2.sort((a,b) => b.value - a.value)
-    // Set the analytics attribute to the sorted array
-    analytics.top_reviewers = sortedArray
-
-    // log for a sanity check
-    console.log(analytics)
-    
-    return JSON.stringify(analytics);
 }
+
 
 // repos type is knex.select return type
-export async function getReposData(databaseClient: Knex, logger: Logger, authGraphql: typeof graphql, repos: Pick<UserRepositoryEntry, 'repository'>[], graphqlInput: GetReposDataInput): Promise<string> {
+export async function getReposData(databaseClient: Knex, logger: Logger, authGraphql: typeof graphql, 
+inputJson: GetReposDataInput): Promise<string> {
     let out = []
-    for (const repo of repos) {
+    for (const repo of inputJson.repos) {
         try {
-            const data = await getPRData(databaseClient, logger, authGraphql, {...graphqlInput, repository: repo.repository});
+            const data = await getPRData(databaseClient, logger, authGraphql, {organization: inputJson.organization, repository: repo.repository});
             out.push({repository: repo.repository, data: data.repository.pullRequests.nodes});
         }
 
@@ -271,6 +304,7 @@ export async function getReposData(databaseClient: Knex, logger: Logger, authGra
     return JSON.stringify(out);
 }
 
+
 async function getPRData(databaseClient: Knex, logger: Logger, authGraphql: typeof graphql, inputJson: GetPRDataInput): Promise<PullRequestsData> {
     
     logger.info(`Getting data for repository ${inputJson.repo}`)
@@ -280,6 +314,7 @@ async function getPRData(databaseClient: Knex, logger: Logger, authGraphql: type
     const pullRequests = response.repository.pullRequests.nodes; 
     for (const pullRequest of pullRequests) {
 
+
         // set pr priority and description
 
         try {
@@ -288,7 +323,7 @@ async function getPRData(databaseClient: Knex, logger: Logger, authGraphql: type
                 pull_request_id: pullRequest.id
             }).first();
 
-            if (prProps) {
+            if (prProps !== undefined) {
                 pullRequest.priority = prProps.priority;
                 pullRequest.description = prProps.description; 
             }
