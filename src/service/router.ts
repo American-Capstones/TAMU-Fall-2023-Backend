@@ -314,7 +314,7 @@ export async function createRouter(options: RouterOptions): Promise<express.Rout
       res.push({
         cycleTimeData: [],
         firstReviewData: [],
-        leaderBoard: {},
+        leaderBoard: [],
         totalPullRequestsMerged: [],
         repositoryName: repo.repository,
       });
@@ -361,12 +361,17 @@ export async function createRouter(options: RouterOptions): Promise<express.Rout
           repository: repo.repository,
           year: curYear - yearDiff,
         });
-        res[i].leaderBoard[curYear - yearDiff] = {};
-        for (let month = 1; month <= 12; ++month) {
-          res[i].leaderBoard[curYear - yearDiff][month] = [];
-        }
+
+        const curLeaderBoard: {
+          year: number;
+          data: userAnalyticsEntry[];
+        } = { year: curYear-yearDiff, data: []}
+        // res[i].leaderBoard[curYear - yearDiff] = {};
+        // for (let month = 1; month <= 12; ++month) {
+        //   res[i].leaderBoard[curYear - yearDiff][month] = [];
+        // }
         for (const entry of userData) {
-          res[i].leaderBoard[curYear - yearDiff][entry.month].push(entry);
+          curLeaderBoard.data.push(entry);
         }
 
         // sort leaderboard
@@ -377,11 +382,14 @@ export async function createRouter(options: RouterOptions): Promise<express.Rout
             0.15 * user.pull_requests_comments
           );
         };
-        for (let month = 1; month <= 12; ++month) {
-          res[i].leaderBoard[curYear - yearDiff][month].sort(
-            (user1, user2) => score(user2) - score(user1),
-          ); // higher scores first
-        }
+
+        curLeaderBoard.data.sort((user1, user2) => score(user2)-score(user1));
+        res[i].leaderBoard.push(curLeaderBoard);
+        // for (let month = 1; month <= 12; ++month) {
+        //   res[i].leaderBoard[curYear - yearDiff][month].sort(
+        //     (user1, user2) => score(user2) - score(user1),
+        //   ); // higher scores first
+        // }
       }
 
       logger.info('REPO NAME', repo);

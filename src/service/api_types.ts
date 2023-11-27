@@ -35,9 +35,8 @@ export interface GetAnalyticsResponseObject {
   firstReviewData: number[][]; // 13 values - first the year and then monthly cycle time averages
   totalPullRequestsMerged: number[][]; // 13 values ...
   leaderBoard: {
-    [year: number]: {
-      [month: number]: userAnalyticsEntry[];
-    };
-  };
+    year: number;
+    data: userAnalyticsEntry[];
+  }[];
   repositoryName: string;
 }
