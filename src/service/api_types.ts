@@ -1,46 +1,43 @@
+// add user's auth token?
 
-// add user's auth token? 
-
-import { userAnalyticsEntry } from "./database_types";
+import { userAnalyticsEntry } from './database_types';
 
 export interface AddUserRepoRequestObject {
-    user_id: string; 
-    repository: string; 
+  user_id: string;
+  repository: string;
 }
 
 export interface DeleteUserRepoRequestObject {
-    user_id: string; 
-    repository: string; 
+  user_id: string;
+  repository: string;
 }
 
 export interface GetUserReposRequestObject {
-    user_id: string; 
+  user_id: string;
 }
 
 export interface SetPRPriorityRequestObject {
-    pull_request_id: string; 
-    priority: string; 
+  pull_request_id: string;
+  priority: string;
 }
 
 export interface SetPRDescriptionRequestObject {
-    pull_request_id: string; 
-    description: string; 
+  pull_request_id: string;
+  description: string;
 }
 
 export interface GetAnalyticsRequestObject {
-    user_id: string; 
+  user_id: string;
 }
 
-
 export interface GetAnalyticsResponseObject {
-    [repository: string]: {
-        cycleTimeData: number[][], // 13 values - first the year and then monthly cycle time averages
-        firstReviewData: number[][], // 13 values - first the year and then monthly cycle time averages
-        totalPullRequestsMerged: number[][], // 13 values ... 
-        leaderBoard: {
-            [year: number]: {
-                [month: number]: userAnalyticsEntry[]
-            }
-        }
-    }
+  cycleTimeData: number[][]; // 13 values - first the year and then monthly cycle time averages
+  firstReviewData: number[][]; // 13 values - first the year and then monthly cycle time averages
+  totalPullRequestsMerged: number[][]; // 13 values ...
+  leaderBoard: {
+    [year: number]: {
+      [month: number]: userAnalyticsEntry[];
+    };
+  };
+  repositoryName: string;
 }
