@@ -65,18 +65,4 @@ export default async function createPlugin(
  * Run yarn install from within the plugin directory "plugins/TAMU0Fall-2023-Backend"
  * 
 
-
-
-
-
- TODO:
-  * CHANGE SCHEMA TO SUPPORT NEW FUNCTIONALITY
-  * Come up with tests for each of the api routes (front-end facing)
-  * Feature: add repos automatically according to the teams a user belongs to
-  * Pagination repo nodes
-  * Hiding feature? vs Delete and refresh 
-  * Within team or repo, who made most pull requests or reviews
-  * Time to merge
-  * Time to first review 
-  * PR Size
   
