@@ -5,6 +5,7 @@ import { Logger } from 'winston';
 import { repositoryAnalyticsEntry, repositoryAnalyticsTable, repositoryCursorsEntry, repositoryCursorsTable, userAnalyticsEntry, userAnalyticsTable, UserRepositoryEntry } from './database_types';
 import { Knex } from 'knex';
 import { pullRequestTable, PullRequestEntry } from './database_types'
+import { GetAnalyticsResponseObject } from './api_types';
 
 interface Comment {
     author: {
@@ -121,12 +122,12 @@ export interface GetTeamsReposInput extends RequestParameters {
     user_id: string; 
 }
 
-export interface UpdateRepositoryAnalyticsInput extends RequestParameters {
+export interface UpdateDatabaseRepositoryAnalyticsInput extends RequestParameters {
     organization: string; 
     repository: string; 
 }
 
-async function calculateAnalytics(inputJson: UpdateRepositoryAnalyticsInput, databaseClient: Knex, logger: Logger, data: PullRequestsData) {
+async function calculateAnalytics(inputJson: UpdateDatabaseRepositoryAnalyticsInput, databaseClient: Knex, logger: Logger, data: PullRequestsData) {
     const pullRequests = data.repository.pullRequests.nodes;
     const hourDifference = (t1: Date, t2: Date) => Math.round(Math.abs((t1.getTime()-t2.getTime())/(1000*60*60)));
     
@@ -220,8 +221,9 @@ async function calculateAnalytics(inputJson: UpdateRepositoryAnalyticsInput, dat
     }
 }
 
-export async function updateRepositoryAnalytics(databaseClient: Knex, logger: Logger, authGraphql: typeof graphql,
-inputJson: UpdateRepositoryAnalyticsInput) {
+
+export async function updateDatabaseRepositoryAnalytics(databaseClient: Knex, logger: Logger, authGraphql: typeof graphql,
+inputJson: UpdateDatabaseRepositoryAnalyticsInput) {
 
        try {
             // only 1 client should be doing this per repo so it's a serializable transaction
@@ -382,4 +384,68 @@ export async function getTeamsRepos(logger: Logger, authGraphql: typeof graphql,
 
     logger.info(`Attempting to retrieve team repositories for user ${inputJson.user_id}`)
     return await authGraphql<TeamsRepositories>(GET_TEAM_REPOS, inputJson);
+}
+
+export async function setRepositoryAnalytics(databaseClient: Knex, repo: UserRepositoryEntry, year: number, repositoryResult: GetAnalyticsResponseObject) {
+    const repoData = await databaseClient<repositoryAnalyticsEntry>(
+        repositoryAnalyticsTable,
+      ).where({
+        repository: repo.repository,
+        year,
+      });
+
+      const yearCycleTimeData = [year];
+      const yearFirstReviewData = [year];
+      const yearPRmergedData = [year];
+      for (let i = 0; i < 12; ++i) {
+        yearCycleTimeData.push(-1);
+        yearFirstReviewData.push(-1);
+        yearPRmergedData.push(-1);
+      }
+
+      for (const entry of repoData) {
+        yearCycleTimeData[entry.month] = Number(
+          (
+            Math.round((entry.total_cycle_time / entry.total_pull_requests_merged) * 100) / 100
+          ).toFixed(2),
+        );
+        yearFirstReviewData[entry.month] = Number(
+          (
+            Math.round((entry.total_first_review_time / entry.total_pull_requests_merged) * 100) /
+            100
+          ).toFixed(2),
+        );
+        yearPRmergedData[entry.month] = entry.total_pull_requests_merged;
+      }
+
+      repositoryResult.cycleTimeData.push(yearCycleTimeData);
+      repositoryResult.firstReviewData.push(yearFirstReviewData);
+      repositoryResult.totalPullRequestsMerged.push(yearPRmergedData);
+}
+
+export async function setLeaderBoardAnalytics(databaseClient: Knex, repo: UserRepositoryEntry, year: number, repositoryResult: GetAnalyticsResponseObject) {
+    const userData = await databaseClient<userAnalyticsEntry>(userAnalyticsTable).where({
+        repository: repo.repository,
+        year,
+      });
+
+      const curLeaderBoard: {
+        year: number;
+        data: userAnalyticsEntry[];
+      } = { year, data: []}
+      for (const entry of userData) {
+        curLeaderBoard.data.push(entry);
+      }
+
+      // sort leaderboard
+      const score = (user: userAnalyticsEntry) => {
+        return (
+          user.pull_requests_merged +
+          0.375 * user.pull_requests_reviews +
+          0.15 * user.pull_requests_comments
+        );
+      };
+
+      curLeaderBoard.data.sort((user1, user2) => score(user2)-score(user1));
+      repositoryResult.leaderBoard.push(curLeaderBoard);
 }

@@ -18,17 +18,15 @@ import {
   TeamsRepositories,
   getReposData,
   getTeamsRepos,
-  updateRepositoryAnalytics,
+  setLeaderBoardAnalytics,
+  setRepositoryAnalytics,
+  updateDatabaseRepositoryAnalytics,
   validRepo,
 } from './pull_request_query';
 import {
   PullRequestEntry,
   UserRepositoryEntry,
   pullRequestTable,
-  repositoryAnalyticsEntry,
-  repositoryAnalyticsTable,
-  userAnalyticsEntry,
-  userAnalyticsTable,
   userRepositoriesTable,
 } from './database_types';
 
@@ -293,112 +291,45 @@ export async function createRouter(options: RouterOptions): Promise<express.Rout
 
   router.get('/get-analytics/:user_id', async (request, response) => {
     const user: GetAnalyticsRequestObject = request.params;
-    const repos = await databaseClient<UserRepositoryEntry>(userRepositoriesTable).where({
-      user_id: user.user_id,
-      display: true,
-    });
-
-    // calculate data for repos the user is interested in
-    // this could take a while first time when the repos are large
-    const curYear = new Date().getFullYear();
-    const res: GetAnalyticsResponseObject[] = [];
-    for (const repo of repos) {
-      await updateRepositoryAnalytics(databaseClient, logger, authGraphql, {
-        organization,
-        repository: repo.repository,
+    try {
+      const repos = await databaseClient<UserRepositoryEntry>(userRepositoriesTable).where({
+        user_id: user.user_id,
+        display: true,
       });
-    }
 
-    let i = 0;
-    for (const repo of repos) {
-      res.push({
-        cycleTimeData: [],
-        firstReviewData: [],
-        leaderBoard: [],
-        totalPullRequestsMerged: [],
-        repositoryName: repo.repository,
-      });
-      for (let yearDiff = 0; yearDiff < 5; ++yearDiff) {
-        // repo analytics
-
-        const repoData = await databaseClient<repositoryAnalyticsEntry>(
-          repositoryAnalyticsTable,
-        ).where({
+      // calculate data for repos the user is interested in
+      // this could take a while first time when the repos are large
+      const curYear = new Date().getFullYear();
+      const res: GetAnalyticsResponseObject[] = [];
+      for (const repo of repos) {
+        await updateDatabaseRepositoryAnalytics(databaseClient, logger, authGraphql, {
+          organization,
           repository: repo.repository,
-          year: curYear - yearDiff,
         });
-
-        const yearCycleTimeData = [curYear - yearDiff];
-        const yearFirstReviewData = [curYear - yearDiff];
-        const yearPRmergedData = [curYear - yearDiff];
-        for (let i = 0; i < 12; ++i) {
-          yearCycleTimeData.push(-1);
-          yearFirstReviewData.push(-1);
-          yearPRmergedData.push(-1);
-        }
-
-        for (const entry of repoData) {
-          yearCycleTimeData[entry.month] = Number(
-            (
-              Math.round((entry.total_cycle_time / entry.total_pull_requests_merged) * 100) / 100
-            ).toFixed(2),
-          );
-          yearFirstReviewData[entry.month] = Number(
-            (
-              Math.round((entry.total_first_review_time / entry.total_pull_requests_merged) * 100) /
-              100
-            ).toFixed(2),
-          );
-          yearPRmergedData[entry.month] = entry.total_pull_requests_merged;
-        }
-
-        res[i].cycleTimeData.push(yearCycleTimeData);
-        res[i].firstReviewData.push(yearFirstReviewData);
-        res[i].totalPullRequestsMerged.push(yearPRmergedData);
-
-        // leaderboard
-        const userData = await databaseClient<userAnalyticsEntry>(userAnalyticsTable).where({
-          repository: repo.repository,
-          year: curYear - yearDiff,
-        });
-
-        const curLeaderBoard: {
-          year: number;
-          data: userAnalyticsEntry[];
-        } = { year: curYear-yearDiff, data: []}
-        // res[i].leaderBoard[curYear - yearDiff] = {};
-        // for (let month = 1; month <= 12; ++month) {
-        //   res[i].leaderBoard[curYear - yearDiff][month] = [];
-        // }
-        for (const entry of userData) {
-          curLeaderBoard.data.push(entry);
-        }
-
-        // sort leaderboard
-        const score = (user: userAnalyticsEntry) => {
-          return (
-            user.pull_requests_merged +
-            0.375 * user.pull_requests_reviews +
-            0.15 * user.pull_requests_comments
-          );
-        };
-
-        curLeaderBoard.data.sort((user1, user2) => score(user2)-score(user1));
-        res[i].leaderBoard.push(curLeaderBoard);
-        // for (let month = 1; month <= 12; ++month) {
-        //   res[i].leaderBoard[curYear - yearDiff][month].sort(
-        //     (user1, user2) => score(user2) - score(user1),
-        //   ); // higher scores first
-        // }
       }
-
-      logger.info('REPO NAME', repo);
-      logger.info('i', i.toString());
-      logger.info('res', res.length);
-      i++;
+      for (const repo of repos) {
+        const repositoryResult: GetAnalyticsResponseObject = 
+        {
+          cycleTimeData: [],
+          firstReviewData: [],
+          leaderBoard: [],
+          totalPullRequestsMerged: [],
+          repositoryName: repo.repository,
+        };
+        for (let yearDiff = 0; yearDiff < 5; ++yearDiff) {
+          // repo analytics
+         await setRepositoryAnalytics(databaseClient, repo, curYear-yearDiff, repositoryResult);
+          // leaderboard
+          await setLeaderBoardAnalytics(databaseClient, repo, curYear-yearDiff, repositoryResult);
+        }
+        res.push(repositoryResult);
+      }
+      response.send(JSON.stringify(res));
     }
-
-    response.send(JSON.stringify(res));
+    catch(error: any) {
+      logger.error(`Failed to get analytics for user ${user.user_id}, error: ${error}`);
+      response.status(500).send();
+    }
   });
 
   router.use(errorHandler());
