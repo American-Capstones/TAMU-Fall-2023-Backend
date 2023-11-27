@@ -3,12 +3,23 @@ import { Server } from 'http';
 import { Logger } from 'winston';
 import { createRouter } from './router';
 
+/**
+   * Configuration options for the standalone server
+   * @property port - The port in which the server listens
+   * @property enableCors - A boolean indicating whether CORS (cross-origin resource sharing) should be enabled
+   * @property logger - The logger instance for logging
+   */
 export interface ServerOptions {
   port: number;
   enableCors: boolean;
   logger: Logger;
 }
 
+/**
+   * Starts a standalone server based on the provided Server Options
+   * @param options - Configuration options for the standalone server based on the ServerOptions interface
+   * @returns A Promise resolving to a HTTP Server instance
+   */
 export async function startStandaloneServer(options: ServerOptions): Promise<Server> {
   const logger = options.logger.child({
     service: 'tamu-fall-2023-backend',
