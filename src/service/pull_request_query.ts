@@ -2,8 +2,8 @@ import { graphql, GraphqlResponseError } from '@octokit/graphql';
 import { GET_REPO_DATA, IS_ARCHIVED_REPO, GET_TEAM_REPOS, UPDATE_REPOSITORY_ANALYTICS, INIT_REPOSITORY_ANALYTICS } from './graphql/pull_request';
 import { RequestParameters } from '@octokit/types'
 import { Logger } from 'winston';
-import { repositoryAnalyticsEntry, repositoryAnalyticsTable, repositoryCursorsEntry, repositoryCursorsTable, userAnalyticsEntry, userAnalyticsTable, userRepositoriesTable, UserRepositoryEntry } from './database_types';
-import knex, { Knex } from 'knex';
+import { repositoryAnalyticsEntry, repositoryAnalyticsTable, repositoryCursorsEntry, repositoryCursorsTable, userAnalyticsEntry, userAnalyticsTable, UserRepositoryEntry } from './database_types';
+import { Knex } from 'knex';
 import { pullRequestTable, PullRequestEntry } from './database_types'
 
 interface Comment {
