@@ -1,3 +1,8 @@
+/**
+ * Defines route for the Backend plugin
+ * These include functions for adding, removing, and retrieving pull request and user data from the Postgres Database and the Github GraphQL api
+ */
+
 import { request } from 'supertest';
 import { errorHandler, PluginDatabaseManager, resolvePackagePath } from '@backstage/backend-common';
 import express from 'express';

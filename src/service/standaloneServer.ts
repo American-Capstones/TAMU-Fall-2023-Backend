@@ -1,3 +1,8 @@
+/**
+ * Defines functions to start a standalone server for the Backend plugin
+ * This server includes configurations for routing and logging
+ */
+
 import { createServiceBuilder } from '@backstage/backend-common';
 import { Server } from 'http';
 import { Logger } from 'winston';
