@@ -15,7 +15,10 @@ After the inital cloning and setup, the backend plugin requires another set of s
 
 > In the following steps, 'root' will always refer to the root directory of the Backstage app
 
-1. Navigate to the 'root/packages/backend/package.json' file, add `@internal/pr-tracker-backend": "^0.1.0`, to the list of dependencies
+1. Navigate to the 'root/packages/backend/package.json' file, add the following code to the list of dependencies:
+```json 
+"@internal/pr-tracker-backend": "^0.1.0"`
+```
 2. Within the 'root/packages/backend/src/plugins' folder, create the file pr-tracker-backend.ts, add the code below to the newly created file:
  ```typescript
 import { createRouter } from '@internal/pr-tracker-backend';
