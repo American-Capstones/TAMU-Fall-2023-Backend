@@ -9,6 +9,7 @@ export interface PullRequestEntry {
     pull_request_id: string;
     priority: string;
     description: string; 
+    description_updated_by: string; 
     createdAt: string; 
     updatedAt: string;  
 };

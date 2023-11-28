@@ -48,6 +48,7 @@ interface PullRequest {
     deletions: number;
     priority: string; 
     description: string; 
+    description_updated_by: string; 
     stateDuration: number; 
     numApprovals: number; 
     createdAt: string;
@@ -328,10 +329,12 @@ async function getPRData(databaseClient: Knex, logger: Logger, authGraphql: type
             if (prProps !== undefined) {
                 pullRequest.priority = prProps.priority;
                 pullRequest.description = prProps.description; 
+                pullRequest.description_updated_by = prProps.description_updated_by; 
             }
             else {
                 pullRequest.priority = 'None';
                 pullRequest.description = '';
+                pullRequest.description_updated_by = 'None';
             }
         }
 
