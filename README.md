@@ -12,9 +12,11 @@ After the inital cloning and setup, the backend plugin requires another set of s
 
 
 ### Integration into the Backstage app
-1. Go to packages/backend/package.json, add `"@internal/pr-tracker-backend": "^0.1.0"`, to the list of dependencies
-2. Within the packages/backend/src/plugins folder create the file pr-tracker-backend.ts
-3. Add the code below to the newly created file:
+
+> In the following steps, 'root' will always refer to the root directory of the Backstage app
+
+1. Navigate to the 'root/packages/backend/package.json' file, add `@internal/pr-tracker-backend": "^0.1.0`, to the list of dependencies
+2. Within the 'root/packages/backend/src/plugins' folder, create the file pr-tracker-backend.ts, add the code below to the newly created file:
  ```typescript
 import { createRouter } from '@internal/pr-tracker-backend';
 import { Router } from 'express';
@@ -26,8 +28,6 @@ export default async function createPlugin(
   // Here is where you will add all of the required initialization code that
   // your backend plugin needs to be able to start!
 
-  // The env contains a lot of goodies, but our router currently only
-  // needs a logger
   return await createRouter({
     logger: env.logger,
     config: env.config, 
@@ -35,7 +35,7 @@ export default async function createPlugin(
   });
 }
  ```
-4. Add the following three lines to the following areas of the packages/backend/src/index.ts file
+3. Navigate to the 'root/packages/backend/src/index.ts' file, add the following three lines to the following areas:
  ``` typescript
  // Add this code below the imports at the top of the file
  import pr_tracker_backend from './plugins/pr-tracker-backend';
@@ -49,14 +49,14 @@ export default async function createPlugin(
  // Add this line below the apiRouter.use() lines within the main function
  apiRouter.use('/pr-tracker-backend', await pr_tracker_backend(prTrackerBackendEnv));
  ```
-5. Go back to the root directory of the backstage app, within the app-config.yaml file add the code below to them bottom of the file
+4. Navigate back to the 'root/app-config.yaml' file, add the following code to them bottom of the file:
  ```yaml
  // Note: we will pass the specific oauth token if needed to AA directly
  pr-tracker-backend:
   auth_token: "${GITHUB_OAUTH_AA_CAP_SECRET}"
   organization: "CSCE-482-AA-FALL23"
  ```
-6. In the app-config.yaml file, within the auth section, replace the clientId and clientSecret with your orgs relevant tokens.
-7. Run yarn install from within the plugin directory "plugins/TAMU0Fall-2023-Backend"
+5. Within the 'root/app-config.yaml' file, navigate to the auth section, replace the 'clientId' and 'clientSecret' with your orgs relevant tokens.
+6. Run yarn install from within the plugin directory 'root/plugins/TAMU0Fall-2023-Backend'
 
   
