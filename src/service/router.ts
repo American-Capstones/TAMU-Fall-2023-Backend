@@ -1,10 +1,16 @@
+/**
+ * Defines route for the Backend plugin
+ * These include functions for adding, removing, and retrieving pull request and user data from the Postgres Database and the Github GraphQL api
+ */
+
+import { request } from 'supertest';
 import { errorHandler, PluginDatabaseManager, resolvePackagePath } from '@backstage/backend-common';
 import express from 'express';
 import Router from 'express-promise-router';
 import { Logger } from 'winston';
 import { Config } from '@backstage/config';
 import { Knex } from 'knex';
-import { graphql } from '@octokit/graphql';
+import { graphql, GraphqlResponseError } from '@octokit/graphql';
 import {
   AddUserRepoRequestObject,
   DeleteUserRepoRequestObject,
@@ -36,6 +42,11 @@ export interface RouterOptions {
   database: PluginDatabaseManager;
 }
 
+/**
+ * Applies database migrations using Knex
+ * @param knex - Knex instance for postgres database
+ * @returns A promise that resolves when the migrations have been applied
+ */
 async function applyDatabaseMigrations(knex: Knex): Promise<void> {
   const migrationsDir = resolvePackagePath('@internal/pr-tracker-backend', 'migrations');
 
@@ -44,6 +55,14 @@ async function applyDatabaseMigrations(knex: Knex): Promise<void> {
   });
 } //
 
+
+/**
+ * Creates an Express router with endpoints for managing user repositories, pull requests, and analytics data
+ * @param options.logger - Logger instance for the router
+ * @param options.config - Configuration object for the router
+ * @param options.database - PluginDatabaseManager instance for database operations
+ * @returns A Promise that resolves to an Express.Router instance
+ */
 export async function createRouter(options: RouterOptions): Promise<express.Router> {
   const { logger, config, database } = options;
   const databaseClient = await database.getClient();
@@ -69,6 +88,12 @@ export async function createRouter(options: RouterOptions): Promise<express.Rout
   //   nxt();
   // }, dashboardRoute)
 
+  /**
+   * POST Route that handles adding a user repository to the database
+   * @param request - The incoming HTTP request
+   * @param response - The outgoing HTTP response
+   * @returns A response indicating success or an error message
+   */
   router.post('/add-user-repo', async (request, response) => {
     const newUserRepo: AddUserRepoRequestObject = request.body;
 
@@ -114,6 +139,12 @@ export async function createRouter(options: RouterOptions): Promise<express.Rout
     response.status(200).send();
   });
 
+  /**
+   * POST Route that handles deleting a user repository to the database
+   * @param request - The incoming HTTP request
+   * @param response - The outgoing HTTP response
+   * @returns A response indicating success or an error message
+   */
   router.post('/delete-user-repo', async (request, response) => {
     const userRepo: DeleteUserRepoRequestObject = request.body;
     if (!userRepo.user_id) {
@@ -147,6 +178,12 @@ export async function createRouter(options: RouterOptions): Promise<express.Rout
     response.status(200).send();
   });
 
+  /**
+   * GET Route that gets all repositories for a given user and their teams
+   * @param request - The incoming HTTP request
+   * @param response - The outgoing HTTP response
+   * @returns A response indicating success or an error message
+   */
   router.get('/get-user-repos/:user_id', async (request, response) => {
     const user: GetUserReposRequestObject = request.params;
 
@@ -206,6 +243,12 @@ export async function createRouter(options: RouterOptions): Promise<express.Rout
     }
   });
 
+  /**
+   * POST Route that sets the priority of a pull request in the database
+   * @param request - The incoming HTTP request
+   * @param response - The outgoing HTTP response
+   * @returns A response indicating success or an error message
+   */
   router.post('/set-pr-priority', async (request, response) => {
     const pull_request: SetPRPriorityRequestObject = request.body;
 
@@ -254,6 +297,12 @@ export async function createRouter(options: RouterOptions): Promise<express.Rout
     response.status(200).send();
   });
 
+  /**
+   * POST Route that sets the description for a pull request in the database
+   * @param request - The incoming HTTP request
+   * @param response - The outgoing HTTP response
+   * @returns A response indicating success or an error message
+   */
   router.post('/set-pr-description', async (request, response) => {
     const pull_request: SetPRDescriptionRequestObject = request.body;
 
@@ -289,6 +338,12 @@ export async function createRouter(options: RouterOptions): Promise<express.Rout
     response.status(200).send();
   });
 
+  /**
+   * GET Route retrieves all analytics based on pull request data in the database
+   * @param request - The incoming HTTP request
+   * @param response - The outgoing HTTP response
+   * @returns A response indicating success or an error message
+   */
   router.get('/get-analytics/:user_id', async (request, response) => {
     const user: GetAnalyticsRequestObject = request.params;
     try {

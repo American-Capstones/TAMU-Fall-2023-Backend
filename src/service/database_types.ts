@@ -1,10 +1,36 @@
+/**
+ * Defines interfaces used for database table structure
+ * These interfaces include storing information about pull requests, repositories, users, and analytics
+ */
 
+/**
+ * Specifies the table name 'pull_requests' for the database
+ */
 export const pullRequestTable = 'pull_requests';
+
+/**
+ * Specifies the table name 'user_repositories' for the database
+ */
 export const userRepositoriesTable = 'user_repositories';
+
+/**
+ * Specifies the table name 'repository_cursors' for the database
+ */
 export const repositoryCursorsTable = 'repository_cursors';
+
+/**
+ * Specifies the table name 'repository_analytics' for the database
+ */
 export const repositoryAnalyticsTable = 'repository_analytics';
+
+/**
+ * Specifies the table name 'user_analytics' for the database
+ */
 export const userAnalyticsTable = 'user_analytics';
 
+/**
+ * Represents the entry into the pull_requests table in the database
+ */
 export interface PullRequestEntry {
     pull_request_id: string;
     priority: string;
@@ -13,6 +39,9 @@ export interface PullRequestEntry {
     updatedAt: string;  
 };
 
+/**
+ * Represents the entry into the user_repositories table in the database
+ */
 export interface UserRepositoryEntry {
     user_id: string; 
     repository: string; 
@@ -21,6 +50,10 @@ export interface UserRepositoryEntry {
     updated_at: string; 
 };
 
+/**
+ * Represents the entry into the repository_cursors table in the database
+ * This assists with pagination and determining what need repositories need to be added to the repository
+ */
 export interface repositoryCursorsEntry {
     repository: string; 
     cursor: string;
@@ -28,6 +61,9 @@ export interface repositoryCursorsEntry {
     updated_at: string; 
 };
 
+/**
+ * Represents the entry into the repository_analytics table in the database
+ */
 export interface repositoryAnalyticsEntry {
     repository: string; 
     year: number;
@@ -39,6 +75,9 @@ export interface repositoryAnalyticsEntry {
     updated_at: string; 
 };
 
+/**
+ * Represents the entry into the user_analytics table in the database
+ */
 export interface userAnalyticsEntry {
     repository: string; 
     user_id: string; 
