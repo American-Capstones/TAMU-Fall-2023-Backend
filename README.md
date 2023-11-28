@@ -2,26 +2,21 @@
 
 Welcome to the tamu-fall-2023-backend backend plugin!
 
-_This plugin was created through the Backstage CLI_
-
 ## Getting started
 
-Your plugin has been added to the example app in this repository, meaning you'll be able to access it by running `yarn
-start` in the root directory, and then navigating to [/tamu-fall-2023-backend](http://localhost:3000/tamu-fall-2023-backend).
+This plugin for Backstage was created for the 2023 American Airlines sponsored Texas A&M capstone. This repository holds the backend plugin.
 
-You can also serve the plugin in isolation by running `yarn start` in the plugin directory.
-This method of serving the plugin provides quicker iteration speed and a faster startup and hot reloads.
-It is only meant for local development, and the setup for it can be found inside the [/dev](/dev) directory.
+After the inital cloning and setup, the backend plugin requires another set of steps to fully integrate it into the Backstage app.
+
+1. Clone this repository into your backstage root/plugins folder. You'll be able to access it by running `yarn start-backend` in the root directory.
 
 
-Steps:
- * Clone plugin into the plugins folder within the backstage app
- * Go to packages/backend/package.json, add "@internal/pr-tracker-backend": "^0.1.0", to the list of dependencies
- * Go back to backstage root directory, run the command yarn install
- * Within the packages/backend/src/plugins folder create the file pr-tracker-backend.ts
- * Add the code below:
- ```
- import { createRouter } from '@internal/pr-tracker-backend';
+### Integration into the Backstage app
+1. Go to packages/backend/package.json, add `"@internal/pr-tracker-backend": "^0.1.0"`, to the list of dependencies
+2. Within the packages/backend/src/plugins folder create the file pr-tracker-backend.ts
+3. Add the code below to the newly created file:
+ ```typescript
+import { createRouter } from '@internal/pr-tracker-backend';
 import { Router } from 'express';
 import { PluginEnvironment } from '../types';
 
@@ -40,29 +35,28 @@ export default async function createPlugin(
   });
 }
  ```
- * Add the following three lines to the _ areas of the packages/backend/src/index.ts file
- ```
+4. Add the following three lines to the following areas of the packages/backend/src/index.ts file
+ ``` typescript
  // Add this code below the imports at the top of the file
  import pr_tracker_backend from './plugins/pr-tracker-backend';
 
  ```
- ```
+ ``` typescript
  // Add this line below the const useHotMemoize lines within the main function
  const prTrackerBackendEnv = useHotMemoize(module, () => createEnv('pr-tracker-backend'));
  ```
- ```
+ ``` typescript
  // Add this line below the apiRouter.use() lines within the main function
  apiRouter.use('/pr-tracker-backend', await pr_tracker_backend(prTrackerBackendEnv));
  ```
- * Go back to the root directory of the backstage app, within the app-config.yaml file add the code below to them bottom of the file
- ```
+5. Go back to the root directory of the backstage app, within the app-config.yaml file add the code below to them bottom of the file
+ ```yaml
  // Note: we will pass the specific oauth token if needed to AA directly
  pr-tracker-backend:
   auth_token: "${GITHUB_OAUTH_AA_CAP_SECRET}"
   organization: "CSCE-482-AA-FALL23"
  ```
- * In the app-config.yaml file, within the auth section, replace the clientId and clientSecret with your orgs relevant tokens.
- * Run yarn install from within the plugin directory "plugins/TAMU0Fall-2023-Backend"
- * 
+6. In the app-config.yaml file, within the auth section, replace the clientId and clientSecret with your orgs relevant tokens.
+7. Run yarn install from within the plugin directory "plugins/TAMU0Fall-2023-Backend"
 
   
