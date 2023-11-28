@@ -4,7 +4,7 @@ Welcome to the tamu-fall-2023-backend backend plugin!
 
 ## Getting started
 
-This plugin for Backstage was created for the 2023 American Airlines sponsored Texas A&M capstone. This repository holds the backend plugin.
+This Backstage plugin was created for the 2023 American Airlines sponsored Texas A&M capstone. This repository holds the backend plugin.
 
 After the inital cloning and setup, the backend plugin requires another set of steps to fully integrate it into the Backstage app.
 
@@ -57,6 +57,6 @@ export default async function createPlugin(
   organization: "CSCE-482-AA-FALL23"
  ```
 5. Within the 'root/app-config.yaml' file, navigate to the auth section, replace the 'clientId' and 'clientSecret' with your orgs relevant tokens.
-6. Run yarn install from within the plugin directory 'root/plugins/TAMU0Fall-2023-Backend'
+6. Run 'yarn install' from within the plugin directory 'root/plugins/TAMU0Fall-2023-Backend'
 
   The plugin should now be ready for use!
