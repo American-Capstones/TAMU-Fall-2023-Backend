@@ -74,4 +74,4 @@ export default async function createPlugin(
 7. Within the 'root/app-config.yaml' file, navigate to the auth section, replace the 'clientId' and 'clientSecret' with your orgs relevant tokens.
 8. Run 'yarn install' from within the plugin directory 'root/plugins/TAMU0Fall-2023-Backend'
 
-  The plugin should now be ready for use!
+  The plugin should now be ready for use, start the backend using ```yarn start-backend```!
