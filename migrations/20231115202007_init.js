@@ -8,6 +8,7 @@ exports.up = function(knex) {
     table.string('pull_request_id').notNullable().primary();
     table.string('priority').checkIn(['Blocker', 'Critical', 'Major', 'Minor', 'Trivial', 'None']);
     table.string('description');
+    table.string('description_updated_by');
     table.timestamps(true, true);
   })
   .createTable('user_repositories', table => {

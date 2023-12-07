@@ -316,16 +316,23 @@ export async function createRouter(options: RouterOptions): Promise<express.Rout
       return;
     }
 
+    if (!pull_request.description_updated_by) {
+      response.status(400).send('Missing parameter description_updated_by!');
+      return;
+    }
+
     try {
       await databaseClient<PullRequestEntry>(pullRequestTable)
         .insert({
           pull_request_id: pull_request.pull_request_id,
           description: pull_request.description,
+          description_updated_by: pull_request.description_updated_by,
           priority: 'None',
         })
         .onConflict(['pull_request_id'])
         .merge({
           description: pull_request.description,
+          description_updated_by: pull_request.description_updated_by,
         });
     } catch (error: any) {
       logger.error(
