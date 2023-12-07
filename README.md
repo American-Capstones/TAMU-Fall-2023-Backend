@@ -17,7 +17,7 @@ After the inital cloning and setup, the backend plugin requires another set of s
 
 1. Navigate to the 'root/packages/backend/package.json' file, add the following code to the list of dependencies:
 ```json 
-"@internal/pr-tracker-backend": "^0.1.0"`
+"@internal/pr-tracker-backend": "^0.1.0",
 ```
 2. Within the 'root/packages/backend/src/plugins' folder, create the file pr-tracker-backend.ts, add the code below to the newly created file:
  ```typescript
