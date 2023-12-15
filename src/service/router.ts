@@ -54,7 +54,6 @@ async function applyDatabaseMigrations(knex: Knex): Promise<void> {
   });
 } //
 
-
 /**
  * Creates an Express router with endpoints for managing user repositories, pull requests, and analytics data
  * @param options.logger - Logger instance for the router
@@ -64,7 +63,7 @@ async function applyDatabaseMigrations(knex: Knex): Promise<void> {
  */
 export async function createRouter(options: RouterOptions): Promise<express.Router> {
   const { logger, config, database } = options;
-  const databaseClient = await database.getClient() as unknown as Knex;
+  const databaseClient = (await database.getClient()) as unknown as Knex;
   await applyDatabaseMigrations(databaseClient);
 
   const authToken: string = config.getString('pr-tracker-backend.auth_token');
@@ -369,8 +368,7 @@ export async function createRouter(options: RouterOptions): Promise<express.Rout
         });
       }
       for (const repo of repos) {
-        const repositoryResult: GetAnalyticsResponseObject = 
-        {
+        const repositoryResult: GetAnalyticsResponseObject = {
           cycleTimeData: [],
           firstReviewData: [],
           leaderBoard: [],
@@ -379,15 +377,14 @@ export async function createRouter(options: RouterOptions): Promise<express.Rout
         };
         for (let yearDiff = 0; yearDiff < 5; ++yearDiff) {
           // repo analytics
-         await setRepositoryAnalytics(databaseClient, repo, curYear-yearDiff, repositoryResult);
+          await setRepositoryAnalytics(databaseClient, repo, curYear - yearDiff, repositoryResult);
           // leaderboard
-          await setLeaderBoardAnalytics(databaseClient, repo, curYear-yearDiff, repositoryResult);
+          await setLeaderBoardAnalytics(databaseClient, repo, curYear - yearDiff, repositoryResult);
         }
         res.push(repositoryResult);
       }
       response.send(JSON.stringify(res));
-    }
-    catch(error: any) {
+    } catch (error: any) {
       logger.error(`Failed to get analytics for user ${user.user_id}, error: ${error}`);
       response.status(500).send();
     }
