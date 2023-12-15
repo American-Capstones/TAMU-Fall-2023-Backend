@@ -181,7 +181,7 @@ export interface UpdateDatabaseRepositoryAnalyticsInput extends RequestParameter
 async function calculateAnalytics(inputJson: UpdateDatabaseRepositoryAnalyticsInput, databaseClient: Knex, logger: Logger, data: PullRequestsData) {
     const pullRequests = data.repository.pullRequests.nodes;
     const hourDifference = (t1: Date, t2: Date) => Math.round(Math.abs((t1.getTime()-t2.getTime())/(1000*60*60)));
-    
+    logger.info(`Updating analytics in database using latest pull requests from repository: ${inputJson.repository}`);
     for (const pullRequest of pullRequests) {
         // update repository analytics
         

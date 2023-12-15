@@ -7,6 +7,7 @@ import { createServiceBuilder } from '@backstage/backend-common';
 import { Server } from 'http';
 import { Logger } from 'winston';
 import { createRouter } from './router';
+import { ConfigReader } from '@backstage/config';
 
 /**
    * Configuration options for the standalone server
@@ -26,12 +27,26 @@ export interface ServerOptions {
    * @returns A Promise resolving to a HTTP Server instance
    */
 export async function startStandaloneServer(options: ServerOptions): Promise<Server> {
+  const config = ConfigReader.fromConfigs([
+    {
+      context: '',
+      data: {
+        'pr-tracker-backend': {
+          auth_token: 'token',
+          organization: 'organization',
+        },
+      },
+    },
+  ]);
+
   const logger = options.logger.child({
     service: 'tamu-fall-2023-backend',
   });
   logger.debug('Starting application server...');
   const router = await createRouter({
     logger,
+    config, 
+    database: null as any,
   });
 
   let service = createServiceBuilder(module)

@@ -86,26 +86,23 @@ describe('createRouter', () => {
     });
 
     // Need to detgermine what the response.text should be for these three cases
-    // it('fails to add repo to database successfully because missing repository', async () => {
-    //   const response = await request(app).post('/delete-user-repo').send({user_id: 1, repository: 'test-repo'});
-    //   expect(mockWhere).not.toHaveBeenCalled()
-    //   expect(response.status).toBe(400);
-    //   expect(response.text).toBe('')
-    // })
+    it('fails to add repo to database successfully because missing repository', async () => {
+      const response = await request(app).post('/delete-user-repo').send({user_id: 1, repository: 'test-repo'});
+      expect(mockWhere).not.toHaveBeenCalled()
+      expect(response.status).toBe(400);
+    })
 
-    // it('fails to add repo to database successfully because user not existing', async () => {
-    //   const response = await request(app).post('/delete-user-repo').send({user_id: 1, repository: 'test-repo'});
-    //   expect(mockWhere).not.toHaveBeenCalled()
-    //   expect(response.status).toBe(400);
-    //   expect(response.text).toBe('')
-    // })
+    it('fails to add repo to database successfully because user not existing', async () => {
+      const response = await request(app).post('/delete-user-repo').send({user_id: 1, repository: 'test-repo'});
+      expect(mockWhere).not.toHaveBeenCalled()
+      expect(response.status).toBe(400);
+    })
 
-    // it('fails to add repo to database successfully because repo not existing', async () => {
-    //   const response = await request(app).post('/delete-user-repo').send({user_id: 1, repository: 'test-repo'});
-    //   expect(mockWhere).not.toHaveBeenCalled()
-    //   expect(response.status).toBe(400);
-    //   expect(response.text).toBe('')
-    // })
+    it('fails to add repo to database successfully because repo not existing', async () => {
+      const response = await request(app).post('/delete-user-repo').send({user_id: 1, repository: 'test-repo'});
+      expect(mockWhere).not.toHaveBeenCalled()
+      expect(response.status).toBe(400);
+    })
   })
 
   // Describe block for adding a user repo
@@ -175,13 +172,13 @@ describe('createRouter', () => {
     });
 
     // Need to add code into router.ts to send the proper response text
-    // it('fails to get user repo information because invalid user id', async () => {
-    //   const response = await request(app).get('/get-user-repos/-1');
+    it('fails to get user repo information because invalid user id', async () => {
+      const response = await request(app).get('/get-user-repos/-1');
 
-    //   expect(mockWhere).not.toHaveBeenCalled()
-    //   expect(response.status).toBe(400);
-    //   expect(response.text).toBe('Repository is either not accessible or archived')
-    // })
+      expect(mockWhere).not.toHaveBeenCalled()
+      expect(response.status).toBe(400);
+      expect(response.text).toBe('Repository is either not accessible or archived')
+    })
   });
 
   // Describe block for getting the analytics information for a given user
@@ -207,13 +204,13 @@ describe('createRouter', () => {
     });
 
     // Need to add code into router.ts to send the proper response text
-    // it('fails to get analytics information because invalid user id', async () => {
-    //   const response = await request(app).get('/get-analytics-info/-1');
+    it('fails to get analytics information because invalid user id', async () => {
+      const response = await request(app).get('/get-analytics-info/-1');
 
-    //   expect(mockWhere).not.toHaveBeenCalled()
-    //   expect(response.status).toBe(400);
-    //   expect(response.text).toBe('Repository is either not accessible or archived')
-    // })
+      expect(mockWhere).not.toHaveBeenCalled()
+      expect(response.status).toBe(400);
+      expect(response.text).toBe('Repository is either not accessible or archived')
+    })
   });
 
   // Sets the pull request priority on the dashboard page
@@ -246,19 +243,19 @@ describe('createRouter', () => {
     });
 
     // Need to adjust code in router.ts to send appropriate response statuses 
-    // it('fails to set priority of pull request because user not existing', async () => {
-    //   const response = await request(app).post('/set-pr-priority').send({user_id: -1, priority: 'Major'});
-    //   expect(mockWhere).toHaveBeenCalledWith()
-    //   expect(response.status).toBe(400);
-    //   expect(response.text).toBe('')
-    // });
+    it('fails to set priority of pull request because user not existing', async () => {
+      const response = await request(app).post('/set-pr-priority').send({user_id: -1, priority: 'Major'});
+      expect(mockWhere).toHaveBeenCalledWith()
+      expect(response.status).toBe(400);
+      expect(response.text).toBe('')
+    });
 
-    // it('fails to set priority of pull request because invalid priority', async () => {
-    //   const response = await request(app).post('/set-pr-priority').send({user_id: 1, priority: 'INVALID'});
-    //   expect(mockWhere).toHaveBeenCalledWith()
-    //   expect(response.status).toBe(400);
-    //   expect(response.text).toBe('')
-    // });
+    it('fails to set priority of pull request because invalid priority', async () => {
+      const response = await request(app).post('/set-pr-priority').send({user_id: 1, priority: 'INVALID'});
+      expect(mockWhere).toHaveBeenCalledWith()
+      expect(response.status).toBe(400);
+      expect(response.text).toBe('')
+    });
 
 
   });

@@ -3,14 +3,13 @@
  * These include functions for adding, removing, and retrieving pull request and user data from the Postgres Database and the Github GraphQL api
  */
 
-import { request } from 'supertest';
 import { errorHandler, PluginDatabaseManager, resolvePackagePath } from '@backstage/backend-common';
 import express from 'express';
 import Router from 'express-promise-router';
 import { Logger } from 'winston';
 import { Config } from '@backstage/config';
 import { Knex } from 'knex';
-import { graphql, GraphqlResponseError } from '@octokit/graphql';
+import { graphql } from '@octokit/graphql';
 import {
   AddUserRepoRequestObject,
   DeleteUserRepoRequestObject,
@@ -65,7 +64,7 @@ async function applyDatabaseMigrations(knex: Knex): Promise<void> {
  */
 export async function createRouter(options: RouterOptions): Promise<express.Router> {
   const { logger, config, database } = options;
-  const databaseClient = await database.getClient();
+  const databaseClient = await database.getClient() as unknown as Knex;
   await applyDatabaseMigrations(databaseClient);
 
   const authToken: string = config.getString('pr-tracker-backend.auth_token');
