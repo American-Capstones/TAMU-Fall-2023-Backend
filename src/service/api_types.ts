@@ -42,6 +42,7 @@ export interface SetPRPriorityRequestObject {
 export interface SetPRDescriptionRequestObject {
   pull_request_id: string;
   description: string;
+  description_updated_by: string;
 }
 
 /**

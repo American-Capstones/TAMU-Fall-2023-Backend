@@ -3,14 +3,13 @@
  * These include functions for adding, removing, and retrieving pull request and user data from the Postgres Database and the Github GraphQL api
  */
 
-import { request } from 'supertest';
 import { errorHandler, PluginDatabaseManager, resolvePackagePath } from '@backstage/backend-common';
 import express from 'express';
 import Router from 'express-promise-router';
 import { Logger } from 'winston';
 import { Config } from '@backstage/config';
 import { Knex } from 'knex';
-import { graphql, GraphqlResponseError } from '@octokit/graphql';
+import { graphql } from '@octokit/graphql';
 import {
   AddUserRepoRequestObject,
   DeleteUserRepoRequestObject,
@@ -55,7 +54,6 @@ async function applyDatabaseMigrations(knex: Knex): Promise<void> {
   });
 } //
 
-
 /**
  * Creates an Express router with endpoints for managing user repositories, pull requests, and analytics data
  * @param options.logger - Logger instance for the router
@@ -65,7 +63,7 @@ async function applyDatabaseMigrations(knex: Knex): Promise<void> {
  */
 export async function createRouter(options: RouterOptions): Promise<express.Router> {
   const { logger, config, database } = options;
-  const databaseClient = await database.getClient();
+  const databaseClient = (await database.getClient()) as unknown as Knex;
   await applyDatabaseMigrations(databaseClient);
 
   const authToken: string = config.getString('pr-tracker-backend.auth_token');
@@ -316,16 +314,23 @@ export async function createRouter(options: RouterOptions): Promise<express.Rout
       return;
     }
 
+    if (!pull_request.description_updated_by) {
+      response.status(400).send('Missing parameter description_updated_by!');
+      return;
+    }
+
     try {
       await databaseClient<PullRequestEntry>(pullRequestTable)
         .insert({
           pull_request_id: pull_request.pull_request_id,
           description: pull_request.description,
+          description_updated_by: pull_request.description_updated_by,
           priority: 'None',
         })
         .onConflict(['pull_request_id'])
         .merge({
           description: pull_request.description,
+          description_updated_by: pull_request.description_updated_by,
         });
     } catch (error: any) {
       logger.error(
@@ -363,8 +368,7 @@ export async function createRouter(options: RouterOptions): Promise<express.Rout
         });
       }
       for (const repo of repos) {
-        const repositoryResult: GetAnalyticsResponseObject = 
-        {
+        const repositoryResult: GetAnalyticsResponseObject = {
           cycleTimeData: [],
           firstReviewData: [],
           leaderBoard: [],
@@ -373,15 +377,14 @@ export async function createRouter(options: RouterOptions): Promise<express.Rout
         };
         for (let yearDiff = 0; yearDiff < 5; ++yearDiff) {
           // repo analytics
-         await setRepositoryAnalytics(databaseClient, repo, curYear-yearDiff, repositoryResult);
+          await setRepositoryAnalytics(databaseClient, repo, curYear - yearDiff, repositoryResult);
           // leaderboard
-          await setLeaderBoardAnalytics(databaseClient, repo, curYear-yearDiff, repositoryResult);
+          await setLeaderBoardAnalytics(databaseClient, repo, curYear - yearDiff, repositoryResult);
         }
         res.push(repositoryResult);
       }
       response.send(JSON.stringify(res));
-    }
-    catch(error: any) {
+    } catch (error: any) {
       logger.error(`Failed to get analytics for user ${user.user_id}, error: ${error}`);
       response.status(500).send();
     }

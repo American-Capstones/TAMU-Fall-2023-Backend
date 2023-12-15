@@ -7,13 +7,14 @@ import { createServiceBuilder } from '@backstage/backend-common';
 import { Server } from 'http';
 import { Logger } from 'winston';
 import { createRouter } from './router';
+import { ConfigReader } from '@backstage/config';
 
 /**
-   * Configuration options for the standalone server
-   * @property port - The port in which the server listens
-   * @property enableCors - A boolean indicating whether CORS (cross-origin resource sharing) should be enabled
-   * @property logger - The logger instance for logging
-   */
+ * Configuration options for the standalone server
+ * @property port - The port in which the server listens
+ * @property enableCors - A boolean indicating whether CORS (cross-origin resource sharing) should be enabled
+ * @property logger - The logger instance for logging
+ */
 export interface ServerOptions {
   port: number;
   enableCors: boolean;
@@ -21,17 +22,31 @@ export interface ServerOptions {
 }
 
 /**
-   * Starts a standalone server based on the provided Server Options
-   * @param options - Configuration options for the standalone server based on the ServerOptions interface
-   * @returns A Promise resolving to a HTTP Server instance
-   */
+ * Starts a standalone server based on the provided Server Options
+ * @param options - Configuration options for the standalone server based on the ServerOptions interface
+ * @returns A Promise resolving to a HTTP Server instance
+ */
 export async function startStandaloneServer(options: ServerOptions): Promise<Server> {
+  const config = ConfigReader.fromConfigs([
+    {
+      context: '',
+      data: {
+        'pr-tracker-backend': {
+          auth_token: 'token',
+          organization: 'organization',
+        },
+      },
+    },
+  ]);
+
   const logger = options.logger.child({
     service: 'tamu-fall-2023-backend',
   });
   logger.debug('Starting application server...');
   const router = await createRouter({
     logger,
+    config,
+    database: null as any,
   });
 
   let service = createServiceBuilder(module)
